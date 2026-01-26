@@ -28,7 +28,7 @@ type HubConnectionBuilder = {
 };
 
 // This will be the actual SignalR import when you install the package
-// import * as signalR from '@microsoft/signalr';
+import * as signalR from '@microsoft/signalr';
 
 // Connection instances
 let notificationsConnection: HubConnection | null = null;
@@ -56,17 +56,16 @@ export interface AppointmentEventHandlers {
  */
 async function createConnection(hubUrl: string): Promise<HubConnection | null> {
   try {
-    // Uncomment when @microsoft/signalr is installed
-    // const signalR = await import('@microsoft/signalr');
-    // 
-    // const connection = new signalR.HubConnectionBuilder()
-    //   .withUrl(hubUrl, {
-    //     accessTokenFactory: () => getAccessToken(),
-    //   })
-    //   .withAutomaticReconnect()
-    //   .build();
-    // 
-    // return connection;
+    const signalR = await import('@microsoft/signalr');
+    
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(hubUrl, {
+        accessTokenFactory: () => getAccessToken() ?? '',
+      })
+      .withAutomaticReconnect()
+      .build();
+    
+    return connection;
     
     console.log(`SignalR connection would be created for: ${hubUrl}`);
     console.log('Install @microsoft/signalr package to enable real-time features');
