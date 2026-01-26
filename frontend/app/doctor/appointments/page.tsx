@@ -1,95 +1,131 @@
 'use client';
 
-import { useState } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
-import { AppointmentStatus } from '@/types';
-
-// Mock appointments data
-const mockAppointments = [
-  {
-    id: '1',
-    patient: 'John Smith',
-    patientEmail: 'john.smith@email.com',
-    date: '2026-01-27',
-    startTime: '09:00',
-    endTime: '09:30',
-    type: 'PHYSICAL' as const,
-    status: 'Approved' as AppointmentStatus,
-    reason: 'Regular check-up',
-  },
-  {
-    id: '2',
-    patient: 'Emma Davis',
-    patientEmail: 'emma.davis@email.com',
-    date: '2026-01-27',
-    startTime: '10:00',
-    endTime: '10:30',
-    type: 'ONLINE' as const,
-    status: 'Approved' as AppointmentStatus,
-    reason: 'Follow-up consultation',
-  },
-  {
-    id: '3',
-    patient: 'Alice Johnson',
-    patientEmail: 'alice.j@email.com',
-    date: '2026-01-28',
-    startTime: '10:00',
-    endTime: '10:30',
-    type: 'ONLINE' as const,
-    status: 'Pending' as AppointmentStatus,
-    reason: 'Annual check-up',
-  },
-  {
-    id: '4',
-    patient: 'Robert Martinez',
-    patientEmail: 'robert.m@email.com',
-    date: '2026-01-29',
-    startTime: '14:30',
-    endTime: '15:00',
-    type: 'PHYSICAL' as const,
-    status: 'Pending' as AppointmentStatus,
-    reason: 'Follow-up consultation',
-  },
-  {
-    id: '5',
-    patient: 'Michael Brown',
-    patientEmail: 'michael.b@email.com',
-    date: '2026-01-20',
-    startTime: '11:00',
-    endTime: '11:30',
-    type: 'PHYSICAL' as const,
-    status: 'Done' as AppointmentStatus,
-    reason: 'Chest pain evaluation',
-  },
-];
+import { useState, useEffect } from 'react';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
+import { useAuthStore } from '@/store';
+import { appointmentService } from '@/services';
+import { Appointment, AppointmentStatus } from '@/types';
 
 const statusColors: Record<AppointmentStatus, string> = {
-  Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-  Approved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  Declined: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-  Cancelled: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-  Done: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  Pending: 'bg-yellow-100 text-yellow-800',
+  Approved: 'bg-green-100 text-green-800',
+  Declined: 'bg-red-100 text-red-800',
+  Cancelled: 'bg-gray-100 text-gray-800',
+  Done: 'bg-blue-100 text-blue-800',
 };
 
-type FilterType = 'all' | 'pending' | 'approved' | 'completed';
+type TabType = 'pending' | 'upcoming' | 'past' | 'all';
 
 export default function DoctorAppointmentsPage() {
-  const [filter, setFilter] = useState<FilterType>('all');
+  const user = useAuthStore((state) => state.user);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<TabType>('pending');
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [searchDate, setSearchDate] = useState('');
 
-  const filteredAppointments = mockAppointments.filter((apt) => {
-    switch (filter) {
-      case 'pending':
-        return apt.status === 'Pending';
-      case 'approved':
-        return apt.status === 'Approved';
-      case 'completed':
-        return apt.status === 'Done';
-      default:
-        return true;
+  useEffect(() => {
+    if (user?.id) {
+      loadAppointments();
     }
+  }, [user?.id]);
+
+  const loadAppointments = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      const response = await appointmentService.getByDoctor(user!.id);
+      setAppointments(response.data || response as unknown as Appointment[]);
+    } catch (err) {
+      console.error('Failed to load appointments:', err);
+      setError('Failed to load appointments');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    try {
+      setProcessingId(id);
+      await appointmentService.approve(id);
+      setAppointments(appointments.map(apt => 
+        apt.id === id ? { ...apt, status: AppointmentStatus.Approved } : apt
+      ));
+    } catch (err) {
+      console.error('Failed to approve:', err);
+      setError('Failed to approve appointment');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDecline = async (id: string) => {
+    const reason = prompt('Please provide a reason for declining (optional):');
+    try {
+      setProcessingId(id);
+      await appointmentService.decline(id, reason || undefined);
+      setAppointments(appointments.map(apt => 
+        apt.id === id ? { ...apt, status: AppointmentStatus.Declined } : apt
+      ));
+    } catch (err) {
+      console.error('Failed to decline:', err);
+      setError('Failed to decline appointment');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleComplete = async (id: string) => {
+    try {
+      setProcessingId(id);
+      await appointmentService.complete(id);
+      setAppointments(appointments.map(apt => 
+        apt.id === id ? { ...apt, status: AppointmentStatus.Done } : apt
+      ));
+    } catch (err) {
+      console.error('Failed to complete:', err);
+      setError('Failed to mark as complete');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const filteredAppointments = appointments.filter((apt) => {
+    const aptDate = apt.date || '';
+    
+    // Filter by search date
+    if (searchDate && aptDate !== searchDate) return false;
+    
+    // Filter by tab
+    if (activeTab === 'pending') {
+      return apt.status === AppointmentStatus.Pending;
+    }
+    if (activeTab === 'upcoming') {
+      return aptDate >= today && 
+        (apt.status === AppointmentStatus.Approved || apt.status === AppointmentStatus.Pending);
+    }
+    if (activeTab === 'past') {
+      return aptDate < today || apt.status === AppointmentStatus.Done;
+    }
+    return true;
+  }).sort((a, b) => {
+    const dateA = a.date || '';
+    const dateB = b.date || '';
+    return dateA.localeCompare(dateB) || (a.startTime || '').localeCompare(b.startTime || '');
   });
 
-  const pendingCount = mockAppointments.filter((a) => a.status === 'Pending').length;
+  const pendingCount = appointments.filter(a => a.status === AppointmentStatus.Pending).length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -98,29 +134,45 @@ export default function DoctorAppointmentsPage() {
           <h2 className="text-3xl font-bold">Appointments</h2>
           <p className="text-muted-foreground">Manage your patient appointments</p>
         </div>
-        <div className="flex items-center gap-2">
-          {pendingCount > 0 && (
-            <span className="px-3 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 rounded-full text-sm font-medium">
-              {pendingCount} pending request{pendingCount !== 1 ? 's' : ''}
-            </span>
+        <div className="flex items-center gap-4">
+          <Input
+            type="date"
+            value={searchDate}
+            onChange={(e) => setSearchDate(e.target.value)}
+            className="w-auto"
+          />
+          {searchDate && (
+            <Button variant="ghost" size="sm" onClick={() => setSearchDate('')}>
+              Clear
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Filters */}
+      {error && (
+        <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+          {error}
+        </div>
+      )}
+
+      {/* Tabs */}
       <div className="flex gap-2 border-b">
-        <FilterButton active={filter === 'all'} onClick={() => setFilter('all')}>
+        <TabButton active={activeTab === 'pending'} onClick={() => setActiveTab('pending')}>
+          Pending {pendingCount > 0 && (
+            <span className="ml-1 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+              {pendingCount}
+            </span>
+          )}
+        </TabButton>
+        <TabButton active={activeTab === 'upcoming'} onClick={() => setActiveTab('upcoming')}>
+          Upcoming
+        </TabButton>
+        <TabButton active={activeTab === 'past'} onClick={() => setActiveTab('past')}>
+          Past
+        </TabButton>
+        <TabButton active={activeTab === 'all'} onClick={() => setActiveTab('all')}>
           All
-        </FilterButton>
-        <FilterButton active={filter === 'pending'} onClick={() => setFilter('pending')}>
-          Pending ({pendingCount})
-        </FilterButton>
-        <FilterButton active={filter === 'approved'} onClick={() => setFilter('approved')}>
-          Approved
-        </FilterButton>
-        <FilterButton active={filter === 'completed'} onClick={() => setFilter('completed')}>
-          Completed
-        </FilterButton>
+        </TabButton>
       </div>
 
       {/* Appointments List */}
@@ -130,81 +182,23 @@ export default function DoctorAppointmentsPage() {
             <CardContent className="py-12 text-center">
               <span className="text-4xl mb-4 block">📅</span>
               <p className="text-lg font-medium">No appointments found</p>
-              <p className="text-muted-foreground">No appointments match the current filter</p>
+              <p className="text-muted-foreground">
+                {activeTab === 'pending'
+                  ? 'No pending appointment requests'
+                  : 'No appointments in this category'}
+              </p>
             </CardContent>
           </Card>
         ) : (
           filteredAppointments.map((appointment) => (
-            <Card
+            <AppointmentCard
               key={appointment.id}
-              className={appointment.status === 'Pending' ? 'border-yellow-300 dark:border-yellow-800' : ''}
-            >
-              <CardContent className="pt-6">
-                <div className="flex flex-col lg:flex-row gap-4 justify-between">
-                  <div className="flex gap-4">
-                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                      <span className="text-2xl">👤</span>
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="font-semibold text-lg">{appointment.patient}</h3>
-                      <p className="text-sm text-muted-foreground">{appointment.patientEmail}</p>
-                      <div className="flex items-center gap-4 text-sm">
-                        <span>📅 {formatDate(appointment.date)}</span>
-                        <span>🕐 {appointment.startTime} - {appointment.endTime}</span>
-                        <span>
-                          {appointment.type === 'ONLINE' ? '💻 Online' : '🏥 Physical'}
-                        </span>
-                      </div>
-                      <p className="text-sm">
-                        <span className="text-muted-foreground">Reason:</span> {appointment.reason}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-3">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        statusColors[appointment.status]
-                      }`}
-                    >
-                      {appointment.status}
-                    </span>
-
-                    <div className="flex gap-2">
-                      {appointment.status === 'Pending' && (
-                        <>
-                          <Button size="sm" variant="outline">
-                            Decline
-                          </Button>
-                          <Button size="sm">Approve</Button>
-                        </>
-                      )}
-                      {appointment.status === 'Approved' && appointment.type === 'ONLINE' && (
-                        <Button size="sm">Start Call</Button>
-                      )}
-                      {appointment.status === 'Approved' && (
-                        <>
-                          <Button size="sm" variant="outline">
-                            Reschedule
-                          </Button>
-                          <Button size="sm" variant="secondary">
-                            Mark Complete
-                          </Button>
-                        </>
-                      )}
-                      {appointment.status === 'Done' && (
-                        <Button size="sm" variant="outline">
-                          Add Notes
-                        </Button>
-                      )}
-                      <Button size="sm" variant="ghost">
-                        View
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              appointment={appointment}
+              onApprove={() => handleApprove(appointment.id)}
+              onDecline={() => handleDecline(appointment.id)}
+              onComplete={() => handleComplete(appointment.id)}
+              isProcessing={processingId === appointment.id}
+            />
           ))
         )}
       </div>
@@ -212,7 +206,107 @@ export default function DoctorAppointmentsPage() {
   );
 }
 
-function FilterButton({
+interface AppointmentCardProps {
+  appointment: Appointment;
+  onApprove: () => void;
+  onDecline: () => void;
+  onComplete: () => void;
+  isProcessing: boolean;
+}
+
+function AppointmentCard({ appointment, onApprove, onDecline, onComplete, isProcessing }: AppointmentCardProps) {
+  const patient = appointment.patient;
+  const patientName = patient 
+    ? `${patient.firstName} ${patient.lastName}`
+    : 'Patient';
+  const aptDate = appointment.date || '';
+  const aptStatus = (appointment.status as AppointmentStatus) || AppointmentStatus.Pending;
+  const isOnline = appointment.type === 'ONLINE';
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex flex-col md:flex-row gap-4 justify-between">
+          <div className="flex gap-4">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">👤</span>
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-semibold text-lg">{patientName}</h3>
+              <p className="text-sm text-muted-foreground">{patient?.email}</p>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>📅 {formatDate(aptDate)}</span>
+                <span>🕐 {appointment.startTime} - {appointment.endTime}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                {isOnline ? (
+                  <span>💻 Online Consultation</span>
+                ) : (
+                  <span>🏥 In-person</span>
+                )}
+              </div>
+              {appointment.reason && (
+                <p className="text-sm mt-2">
+                  <strong>Reason:</strong> {appointment.reason}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+            <span
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                statusColors[aptStatus]
+              }`}
+            >
+              {aptStatus}
+            </span>
+
+            <div className="flex gap-2 mt-2">
+              {aptStatus === AppointmentStatus.Pending && (
+                <>
+                  <Button 
+                    size="sm" 
+                    onClick={onApprove}
+                    isLoading={isProcessing}
+                  >
+                    Approve
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={onDecline}
+                    disabled={isProcessing}
+                  >
+                    Decline
+                  </Button>
+                </>
+              )}
+              {aptStatus === AppointmentStatus.Approved && (
+                <>
+                  <Button 
+                    size="sm" 
+                    onClick={onComplete}
+                    isLoading={isProcessing}
+                  >
+                    Mark Complete
+                  </Button>
+                  {isOnline && appointment.meetingLink && (
+                    <a href={appointment.meetingLink} target="_blank" rel="noopener noreferrer">
+                      <Button size="sm" variant="outline">Join Meeting</Button>
+                    </a>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TabButton({
   children,
   active,
   onClick,
@@ -236,10 +330,12 @@ function FilterButton({
 }
 
 function formatDate(dateStr: string): string {
+  if (!dateStr) return 'N/A';
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    year: 'numeric',
   });
 }

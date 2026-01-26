@@ -1,27 +1,122 @@
 'use client';
 
-import { useState } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { useState, useEffect } from 'react';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
+import { useAuthStore } from '@/store';
+import { doctorService } from '@/services';
+import { DoctorAvailability } from '@/types';
 import { DAYS_OF_WEEK } from '@/lib/constants';
 
-// Mock availability data
-const mockAvailability = [
-  { dayOfWeek: 1, startTime: '09:00', endTime: '12:00' },
-  { dayOfWeek: 1, startTime: '14:00', endTime: '17:00' },
-  { dayOfWeek: 2, startTime: '09:00', endTime: '12:00' },
-  { dayOfWeek: 2, startTime: '14:00', endTime: '17:00' },
-  { dayOfWeek: 3, startTime: '09:00', endTime: '12:00' },
-  { dayOfWeek: 4, startTime: '09:00', endTime: '12:00' },
-  { dayOfWeek: 4, startTime: '14:00', endTime: '17:00' },
-  { dayOfWeek: 5, startTime: '09:00', endTime: '13:00' },
-];
+interface AvailabilitySlot {
+  id?: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+}
 
 export default function DoctorSchedulePage() {
+  const user = useAuthStore((state) => state.user);
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadAvailability();
+    }
+  }, [user?.id]);
+
+  const loadAvailability = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      const data = await doctorService.getAvailability(user!.id);
+      setAvailability(data.map((a: DoctorAvailability) => ({
+        id: a.id,
+        dayOfWeek: a.dayOfWeek,
+        startTime: a.startTime,
+        endTime: a.endTime,
+      })));
+    } catch (err) {
+      console.error('Failed to load availability:', err);
+      // Initialize with empty availability if not found
+      setAvailability([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      setError('');
+      setSuccess('');
+      await doctorService.updateAvailability(user!.id, availability.map(a => ({
+        dayOfWeek: a.dayOfWeek,
+        startTime: a.startTime,
+        endTime: a.endTime,
+      })));
+      setSuccess('Schedule saved successfully!');
+      setHasChanges(false);
+    } catch (err) {
+      console.error('Failed to save:', err);
+      setError('Failed to save schedule');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const addSlot = (dayOfWeek: number) => {
+    setAvailability([
+      ...availability,
+      { dayOfWeek, startTime: '09:00', endTime: '12:00' }
+    ]);
+    setHasChanges(true);
+  };
+
+  const removeSlot = (index: number) => {
+    const newAvailability = [...availability];
+    newAvailability.splice(index, 1);
+    setAvailability(newAvailability);
+    setHasChanges(true);
+  };
+
+  const updateSlot = (index: number, field: 'startTime' | 'endTime', value: string) => {
+    const newAvailability = [...availability];
+    newAvailability[index] = { ...newAvailability[index], [field]: value };
+    setAvailability(newAvailability);
+    setHasChanges(true);
+  };
 
   const getAvailabilityForDay = (day: number) => {
-    return mockAvailability.filter((a) => a.dayOfWeek === day);
+    return availability
+      .map((a, index) => ({ ...a, index }))
+      .filter(a => a.dayOfWeek === day);
   };
+
+  const copyToNextDay = (sourceDay: number) => {
+    const nextDay = (sourceDay + 1) % 7;
+    const sourceDaySlots = availability.filter(a => a.dayOfWeek === sourceDay);
+    const newSlots = sourceDaySlots.map(slot => ({
+      ...slot,
+      id: undefined,
+      dayOfWeek: nextDay,
+    }));
+    setAvailability([...availability, ...newSlots]);
+    setHasChanges(true);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -30,8 +125,26 @@ export default function DoctorSchedulePage() {
           <h2 className="text-3xl font-bold">My Schedule</h2>
           <p className="text-muted-foreground">Manage your weekly availability</p>
         </div>
-        <Button>Save Changes</Button>
+        <Button 
+          onClick={handleSave} 
+          disabled={!hasChanges}
+          isLoading={isSaving}
+        >
+          Save Changes
+        </Button>
       </div>
+
+      {error && (
+        <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="p-3 text-sm text-green-600 bg-green-100 rounded-md">
+          {success}
+        </div>
+      )}
 
       {/* Weekly Overview */}
       <Card>
@@ -78,124 +191,143 @@ export default function DoctorSchedulePage() {
             <CardTitle>
               {DAYS_OF_WEEK.find((d) => d.value === selectedDay)?.label} Schedule
             </CardTitle>
-            <Button size="sm">Add Time Slot</Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => copyToNextDay(selectedDay)}
+                disabled={getAvailabilityForDay(selectedDay).length === 0}
+              >
+                Copy to Next Day
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => addSlot(selectedDay)}>
+                + Add Slot
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            {getAvailabilityForDay(selectedDay).length === 0 ? (
-              <div className="text-center py-8">
-                <span className="text-4xl mb-4 block">😴</span>
-                <p className="text-lg font-medium">No availability set</p>
-                <p className="text-muted-foreground mb-4">
-                  You haven&apos;t set any working hours for this day
-                </p>
-                <Button>Add Working Hours</Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {getAvailabilityForDay(selectedDay).map((slot, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-4">
-                      <span className="text-2xl">🕐</span>
+            <div className="space-y-4">
+              {getAvailabilityForDay(selectedDay).length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="mb-4">No availability set for this day</p>
+                  <Button onClick={() => addSlot(selectedDay)}>
+                    Add Time Slot
+                  </Button>
+                </div>
+              ) : (
+                getAvailabilityForDay(selectedDay).map((slot) => (
+                  <div key={slot.index} className="flex items-center gap-4 p-4 border rounded-lg">
+                    <div className="flex-1 grid grid-cols-2 gap-4">
                       <div>
-                        <p className="font-medium">
-                          {slot.startTime} - {slot.endTime}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {calculateDuration(slot.startTime, slot.endTime)}
-                        </p>
+                        <label className="text-sm text-muted-foreground block mb-1">Start Time</label>
+                        <Input
+                          type="time"
+                          value={slot.startTime}
+                          onChange={(e) => updateSlot(slot.index, 'startTime', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground block mb-1">End Time</label>
+                        <Input
+                          type="time"
+                          value={slot.endTime}
+                          onChange={(e) => updateSlot(slot.index, 'endTime', e.target.value)}
+                        />
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline">
-                        Edit
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-destructive">
-                        Remove
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeSlot(slot.index)}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      🗑️ Remove
+                    </Button>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Consultation Settings */}
+      {/* Quick Setup Templates */}
       <Card>
         <CardHeader>
-          <CardTitle>Consultation Settings</CardTitle>
+          <CardTitle>Quick Setup</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Consultation Duration</label>
-              <select className="w-full h-10 px-3 rounded-md border border-input bg-background">
-                <option value="15">15 minutes</option>
-                <option value="30" selected>30 minutes</option>
-                <option value="45">45 minutes</option>
-                <option value="60">60 minutes</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Buffer Time Between Appointments</label>
-              <select className="w-full h-10 px-3 rounded-md border border-input bg-background">
-                <option value="0">No buffer</option>
-                <option value="5">5 minutes</option>
-                <option value="10" selected>10 minutes</option>
-                <option value="15">15 minutes</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Consultation Types</label>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked className="rounded" />
-                <span>Physical Consultation</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked className="rounded" />
-                <span>Online Consultation</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded" />
-                <span>Home Visit</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Advance Booking</label>
-            <select className="w-full h-10 px-3 rounded-md border border-input bg-background md:w-1/2">
-              <option value="7">Allow booking up to 1 week in advance</option>
-              <option value="14" selected>Allow booking up to 2 weeks in advance</option>
-              <option value="30">Allow booking up to 1 month in advance</option>
-              <option value="60">Allow booking up to 2 months in advance</option>
-            </select>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Use these templates to quickly set up common schedules
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                // Standard 9-5 weekdays
+                const newAvailability: AvailabilitySlot[] = [];
+                [1, 2, 3, 4, 5].forEach(day => {
+                  newAvailability.push(
+                    { dayOfWeek: day, startTime: '09:00', endTime: '12:00' },
+                    { dayOfWeek: day, startTime: '14:00', endTime: '17:00' }
+                  );
+                });
+                setAvailability(newAvailability);
+                setHasChanges(true);
+              }}
+            >
+              Standard Weekdays (9-5)
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                // Morning only weekdays
+                const newAvailability: AvailabilitySlot[] = [];
+                [1, 2, 3, 4, 5].forEach(day => {
+                  newAvailability.push(
+                    { dayOfWeek: day, startTime: '08:00', endTime: '13:00' }
+                  );
+                });
+                setAvailability(newAvailability);
+                setHasChanges(true);
+              }}
+            >
+              Morning Only
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                // Afternoon only weekdays
+                const newAvailability: AvailabilitySlot[] = [];
+                [1, 2, 3, 4, 5].forEach(day => {
+                  newAvailability.push(
+                    { dayOfWeek: day, startTime: '13:00', endTime: '18:00' }
+                  );
+                });
+                setAvailability(newAvailability);
+                setHasChanges(true);
+              }}
+            >
+              Afternoon Only
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => {
+                if (confirm('This will clear all your availability. Continue?')) {
+                  setAvailability([]);
+                  setHasChanges(true);
+                }
+              }}
+            >
+              Clear All
+            </Button>
           </div>
         </CardContent>
       </Card>
     </div>
   );
-}
-
-function calculateDuration(start: string, end: string): string {
-  const [startHour, startMin] = start.split(':').map(Number);
-  const [endHour, endMin] = end.split(':').map(Number);
-  
-  const startMinutes = startHour * 60 + startMin;
-  const endMinutes = endHour * 60 + endMin;
-  const duration = endMinutes - startMinutes;
-  
-  const hours = Math.floor(duration / 60);
-  const minutes = duration % 60;
-  
-  if (hours === 0) return `${minutes} minutes`;
-  if (minutes === 0) return `${hours} hour${hours !== 1 ? 's' : ''}`;
-  return `${hours}h ${minutes}m`;
 }

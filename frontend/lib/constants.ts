@@ -109,6 +109,7 @@ export const ROUTES = {
     DASHBOARD: '/admin/dashboard',
     USERS: '/admin/users',
     DOCTORS: '/admin/doctors',
+    SECRETARIES: '/admin/secretaries',
     CLINICS: '/admin/clinics',
     SPECIALIZATIONS: '/admin/specializations',
     SETTINGS: '/admin/settings',

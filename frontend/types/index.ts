@@ -118,19 +118,28 @@ export interface AuthState {
 export interface Doctor {
   id: string;
   userId: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  fullName?: string;
   specializationId: string;
   specialization?: Specialization;
-  subSpecializations: string[];
+  subSpecializations?: string[];
   bio?: string;
-  experienceYears: number;
-  languages: string[];
-  consultationTypes: ConsultationType[];
-  consultationDuration: number; // in minutes
-  consultationPrice: number;
+  licenseNumber?: string;
+  yearsOfExperience?: number;
+  experienceYears?: number;
+  education?: string;
+  languages?: string[];
+  consultationTypes?: ConsultationType[];
+  consultationDuration?: number; // in minutes
+  consultationPrice?: number;
+  consultationFee?: number;
   clinicId?: string;
   clinic?: Clinic;
-  rating: number;
+  rating?: number;
+  reviewCount?: number;
   user?: User;
 }
 
@@ -189,6 +198,12 @@ export interface SpecializationCreateDto {
   description?: string;
 }
 
+export interface SpecializationUpdateDto {
+  name?: string;
+  category?: string;
+  description?: string;
+}
+
 // ============================================
 // DOCTOR AVAILABILITY TYPES
 // ============================================
@@ -202,7 +217,6 @@ export interface DoctorAvailability {
 }
 
 export interface DoctorAvailabilityCreateDto {
-  doctorId: string;
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
@@ -237,13 +251,15 @@ export interface Appointment {
   approvedBy?: string;
 }
 
+// Matches backend AppointmentDTOs: AppointmentCreateDto
+// Note: patientId is NOT in the DTO - it's obtained from auth context
 export interface AppointmentCreateDto {
   doctorId: string;
   clinicId?: string;
   date: string;
   startTime: string;
   endTime: string;
-  type: AppointmentType;
+  type: AppointmentType;  // Must use AppointmentType enum, not string
   reason?: string;
 }
 
@@ -295,9 +311,15 @@ export interface ContactInfo {
 export interface Clinic {
   id: string;
   name: string;
-  address: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  description?: string;
+  openingTime?: string;
+  closingTime?: string;
   geoLocation?: GeoLocation;
-  workingHours: WorkingHours[];
+  workingHours?: WorkingHours[];
   contactInfo?: ContactInfo;
 }
 

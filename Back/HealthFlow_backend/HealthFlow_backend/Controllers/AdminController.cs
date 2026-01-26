@@ -2,8 +2,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using HealthFlow_backend.DTOs.Admin;
 using HealthFlow_backend.DTOs.Auth;
+using HealthFlow_backend.Models;
+using HealthFlow_backend.Models.Entities;
 using HealthFlow_backend.Models.Enums;
 using HealthFlow_backend.Repositories.Interfaces;
+using BCrypt.Net;
 
 namespace HealthFlow_backend.Controllers;
 
@@ -74,6 +77,45 @@ public class AdminController : ControllerBase
             ));
 
         return Ok(pagedUsers);
+    }
+
+    [HttpPost("users")]
+    public async Task<ActionResult<AdminUserDto>> CreateUser([FromBody] AdminUserCreateDto dto)
+    {
+        // Check if email already exists
+        var existingUser = await _unitOfWork.Users.FindAsync(u => u.Email == dto.Email);
+        if (existingUser.Any())
+        {
+            return BadRequest(new { message = "Email already registered" });
+        }
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            FirstName = dto.FirstName,
+            LastName = dto.LastName,
+            Email = dto.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+            Role = dto.Role,
+            Phone = dto.Phone,
+            EmailVerified = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _unitOfWork.Users.AddAsync(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, new AdminUserDto(
+            user.Id,
+            user.FirstName,
+            user.LastName,
+            user.Email,
+            user.Role,
+            user.Phone,
+            user.EmailVerified,
+            user.CreatedAt,
+            user.UpdatedAt
+        ));
     }
 
     [HttpPut("users/{id}")]

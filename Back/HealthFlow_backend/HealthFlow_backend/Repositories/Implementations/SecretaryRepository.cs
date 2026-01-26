@@ -42,4 +42,46 @@ public class SecretaryRepository : Repository<SecretaryProfile>, ISecretaryRepos
             .Select(sd => sd.Doctor)
             .ToListAsync();
     }
+
+    public async Task<IEnumerable<SecretaryProfile>> GetAllWithUserAsync()
+    {
+        return await _dbSet
+            .Include(s => s.User)
+            .ToListAsync();
+    }
+
+    public async Task<SecretaryProfile?> GetByIdWithUserAsync(Guid id)
+    {
+        return await _dbSet
+            .Include(s => s.User)
+            .FirstOrDefaultAsync(s => s.Id == id);
+    }
+
+    public async Task<bool> IsDoctorAssignedAsync(Guid secretaryId, Guid doctorId)
+    {
+        return await _context.SecretaryDoctors
+            .AnyAsync(sd => sd.SecretaryProfileId == secretaryId && sd.DoctorId == doctorId);
+    }
+
+    public async Task AssignDoctorAsync(Guid secretaryId, Guid doctorId)
+    {
+        var assignment = new SecretaryDoctor
+        {
+            Id = Guid.NewGuid(),
+            SecretaryProfileId = secretaryId,
+            DoctorId = doctorId
+        };
+        await _context.SecretaryDoctors.AddAsync(assignment);
+    }
+
+    public async Task UnassignDoctorAsync(Guid secretaryId, Guid doctorId)
+    {
+        var assignment = await _context.SecretaryDoctors
+            .FirstOrDefaultAsync(sd => sd.SecretaryProfileId == secretaryId && sd.DoctorId == doctorId);
+        
+        if (assignment != null)
+        {
+            _context.SecretaryDoctors.Remove(assignment);
+        }
+    }
 }

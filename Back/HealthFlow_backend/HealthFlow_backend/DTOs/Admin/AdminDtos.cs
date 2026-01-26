@@ -46,6 +46,15 @@ public record AdminUserUpdateDto(
     bool? EmailVerified
 );
 
+public record AdminUserCreateDto(
+    string FirstName,
+    string LastName,
+    string Email,
+    string Password,
+    UserRole Role,
+    string? Phone
+);
+
 public record AdminSettingsDto(
     string SiteName,
     string SiteEmail,

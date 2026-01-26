@@ -37,6 +37,7 @@ export default function AdminDashboardLayout({ children }: DashboardLayoutProps)
             <NavItem href={ROUTES.ADMIN.DASHBOARD} icon="📊" label="Dashboard" />
             <NavItem href={ROUTES.ADMIN.USERS} icon="👥" label="Users" />
             <NavItem href={ROUTES.ADMIN.DOCTORS} icon="👨‍⚕️" label="Doctors" />
+            <NavItem href={ROUTES.ADMIN.SECRETARIES} icon="📋" label="Secretaries" />
             <NavItem href={ROUTES.ADMIN.CLINICS} icon="🏥" label="Clinics" />
             <NavItem href={ROUTES.ADMIN.SPECIALIZATIONS} icon="🏷️" label="Specializations" />
             <NavItem href={ROUTES.ADMIN.SETTINGS} icon="⚙️" label="Settings" />
