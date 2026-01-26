@@ -10,5 +10,6 @@ public class DoctorProfile
     public int ExperienceYears { get; set; }
     public decimal ConsultationPrice { get; set; }
     public bool OnlineConsultationEnabled { get; set; }
-
+    public SecretaryProfile SecretaryProfile { get; set; }
+    
 }
