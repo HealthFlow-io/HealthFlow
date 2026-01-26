@@ -25,18 +25,31 @@ public class SecretariesController : ControllerBase
     public async Task<ActionResult<IEnumerable<SecretaryProfileDto>>> GetAll()
     {
         var secretaries = await _unitOfWork.Secretaries.GetAllWithUserAsync();
-        var dtos = secretaries.Select(s => new SecretaryProfileDto(
-            s.Id,
-            s.UserId,
-            new UserDto(
-                s.User.Id,
-                s.User.FirstName,
-                s.User.LastName,
-                s.User.Email,
-                s.User.Phone
-            ),
-            new List<DoctorDto>()
-        ));
+        
+        var dtos = new List<SecretaryProfileDto>();
+        foreach (var s in secretaries)
+        {
+            var assignedDoctors = await _unitOfWork.Secretaries.GetAssignedDoctorsAsync(s.Id);
+            var doctorDtos = assignedDoctors.Select(d => new DoctorDto(
+                d.Id,
+                d.FullName,
+                d.Specialization?.Name ?? ""
+            )).ToList();
+            
+            dtos.Add(new SecretaryProfileDto(
+                s.Id,
+                s.UserId,
+                new UserDto(
+                    s.User.Id,
+                    s.User.FirstName,
+                    s.User.LastName,
+                    s.User.Email,
+                    s.User.Phone
+                ),
+                doctorDtos
+            ));
+        }
+        
         return Ok(dtos);
     }
 

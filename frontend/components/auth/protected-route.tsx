@@ -60,14 +60,19 @@ export function ProtectedRoute({
 
     // Check role if required
     if (allowedRoles) {
-      const isAllowed = allowedRoles.includes(user.role);
+      // Convert user.role to UserRole enum for proper comparison
+      const userRole = user.role as UserRole;
+      const isAllowed = allowedRoles.some(role => role === userRole || role === user.role);
       console.log('[ProtectedRoute] Role check:', {
         userRole: user.role,
+        userRoleType: typeof user.role,
         allowedRoles,
-        isAllowed
+        allowedRolesTypes: allowedRoles.map(r => typeof r),
+        isAllowed,
+        comparison: allowedRoles.map(r => ({ role: r, matches: r === userRole, exact: r === user.role }))
       });
       if (!isAllowed) {
-        const dashboardUrl = getDashboardForRole(user.role);
+        const dashboardUrl = getDashboardForRole(userRole);
         console.log('[ProtectedRoute] Role mismatch, redirecting to:', dashboardUrl);
         router.replace(dashboardUrl);
         return;

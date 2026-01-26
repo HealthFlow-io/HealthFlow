@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store';
 import { ROUTES } from '@/lib/constants';
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui';
+import { UserRole } from '@/types';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -167,11 +168,11 @@ function getRedirectPath(role: string, redirectParam: string | null): string {
   // if (redirectParam) return redirectParam;
   
   switch (role) {
-    case 'Doctor':
+    case UserRole.Doctor:
       return ROUTES.DOCTOR.DASHBOARD;
-    case 'Secretary':
+    case UserRole.Secretary:
       return ROUTES.SECRETARY.DASHBOARD;
-    case 'Admin':
+    case UserRole.Admin:
       return ROUTES.ADMIN.DASHBOARD;
     default:
       return ROUTES.PATIENT.DASHBOARD;

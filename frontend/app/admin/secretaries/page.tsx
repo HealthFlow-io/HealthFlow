@@ -5,8 +5,11 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/compo
 import { adminService, CreateUserRequest, CreateSecretaryRequest } from '@/services';
 import { User, Doctor } from '@/types';
 
-interface Secretary extends User {
-  assignedDoctors?: Doctor[];
+interface Secretary {
+  id: string;
+  userId: string;
+  user: User;
+  doctors: Doctor[];
 }
 
 // Form for creating new secretary (creates user + secretary profile)
@@ -70,7 +73,7 @@ export default function AdminSecretariesPage() {
         email: formData.email,
         password: formData.password,
         phone: formData.phone || undefined,
-        role: 'Secretary',
+        role: 'secretary',
       };
       const newUser = await adminService.createUser(userRequest);
 
@@ -78,10 +81,10 @@ export default function AdminSecretariesPage() {
       const secretaryRequest: CreateSecretaryRequest = {
         userId: newUser.id,
       };
-      await adminService.createSecretary(secretaryRequest);
+      const newSecretary = await adminService.createSecretary(secretaryRequest);
       
-      // Add to local state
-      setSecretaries([...secretaries, { ...newUser, assignedDoctors: [] }]);
+      // Reload data to get proper secretary structure
+      await loadData();
       closeModal();
     } catch (err: unknown) {
       const apiError = err as { message?: string };
@@ -124,8 +127,26 @@ export default function AdminSecretariesPage() {
     setError('');
 
     try {
-      // The backend assigns doctors one by one
-      await adminService.assignDoctorsToSecretary(selectedSecretary.id, selectedDoctorIds);
+      // Get current assignments
+      const currentDoctorIds = await adminService.getSecretaryDoctors(selectedSecretary.id)
+        .then(doctors => doctors.map(d => d.id))
+        .catch(() => []);
+      
+      // Find doctors to add (in selectedDoctorIds but not in currentDoctorIds)
+      const doctorsToAdd = selectedDoctorIds.filter(id => !currentDoctorIds.includes(id));
+      
+      // Find doctors to remove (in currentDoctorIds but not in selectedDoctorIds)
+      const doctorsToRemove = currentDoctorIds.filter(id => !selectedDoctorIds.includes(id));
+      
+      // Add new doctors
+      for (const doctorId of doctorsToAdd) {
+        await adminService.assignDoctorToSecretary(selectedSecretary.id, doctorId);
+      }
+      
+      // Remove unselected doctors
+      for (const doctorId of doctorsToRemove) {
+        await adminService.unassignDoctorFromSecretary(selectedSecretary.id, doctorId);
+      }
       
       // Reload to get updated assignments
       await loadData();
@@ -133,7 +154,7 @@ export default function AdminSecretariesPage() {
       setSelectedSecretary(null);
     } catch (err: unknown) {
       const apiError = err as { message?: string };
-      setError(apiError.message || 'Failed to assign doctors');
+      setError(apiError.message || 'Failed to update doctor assignments');
     } finally {
       setIsSubmitting(false);
     }
@@ -213,17 +234,17 @@ export default function AdminSecretariesPage() {
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-medium">
-                          {secretary.user?.firstName?.[0]}{secretary.user?.lastName?.[0]}
+                          {secretary.user.firstName?.[0]}{secretary.user.lastName?.[0]}
                         </div>
-                        <span>{secretary.user?.firstName} {secretary.user?.lastName}</span>
+                        <span>{secretary.user.firstName} {secretary.user.lastName}</span>
                       </div>
                     </td>
-                    <td className="p-4">{secretary.user?.email}</td>
-                    <td className="p-4">{secretary.user?.phone || '-'}</td>
+                    <td className="p-4">{secretary.user.email}</td>
+                    <td className="p-4">{secretary.user.phone || '-'}</td>
                     <td className="p-4">
-                      {secretary.assignedDoctors && secretary.assignedDoctors.length > 0 ? (
+                      {secretary.doctors && secretary.doctors.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {secretary.assignedDoctors.slice(0, 3).map((doctor) => (
+                          {secretary.doctors.slice(0, 3).map((doctor) => (
                             <span
                               key={doctor.id}
                               className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800"
@@ -231,9 +252,9 @@ export default function AdminSecretariesPage() {
                               Dr. {getDoctorName(doctor).split(' ')[0]}
                             </span>
                           ))}
-                          {secretary.assignedDoctors.length > 3 && (
+                          {secretary.doctors.length > 3 && (
                             <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
-                              +{secretary.assignedDoctors.length - 3} more
+                              +{secretary.doctors.length - 3} more
                             </span>
                           )}
                         </div>
@@ -340,7 +361,7 @@ export default function AdminSecretariesPage() {
           <Card className="w-full max-w-lg mx-4">
             <CardHeader>
               <CardTitle>
-                Assign Doctors to {selectedSecretary.user?.firstName} {selectedSecretary.user?.lastName}
+                Assign Doctors to {selectedSecretary.user.firstName} {selectedSecretary.user.lastName}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 max-h-[60vh] overflow-y-auto">

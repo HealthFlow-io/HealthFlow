@@ -220,6 +220,11 @@ export const adminService = {
     return apiClient.post(`${API_ENDPOINTS.SECRETARY.BASE}/${secretaryId}/doctors`, { doctorId });
   },
 
+  // Unassign a doctor from secretary
+  async unassignDoctorFromSecretary(secretaryId: string, doctorId: string): Promise<void> {
+    return apiClient.delete(`${API_ENDPOINTS.SECRETARY.BASE}/${secretaryId}/doctors/${doctorId}`);
+  },
+
   // Assign multiple doctors by calling the assign endpoint multiple times
   async assignDoctorsToSecretary(secretaryId: string, doctorIds: string[]): Promise<void> {
     for (const doctorId of doctorIds) {
