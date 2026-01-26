@@ -75,10 +75,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
     
     try {
       const errorData = await response.json();
-      error.message = errorData.message || error.message;
+      error.message = errorData.message || errorData.title || error.message;
       error.errors = errorData.errors;
     } catch {
       // Response is not JSON
+      if (response.status === 0) {
+        error.message = 'Network error. Please check if the server is running.';
+      } else if (response.status === 404) {
+        error.message = 'API endpoint not found. Please check the server configuration.';
+      } else if (response.status >= 500) {
+        error.message = 'Server error. Please try again later.';
+      }
     }
     
     // Handle 401 Unauthorized - could trigger token refresh here
@@ -87,6 +94,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
       // Could redirect to login or trigger refresh token flow
     }
     
+    console.error('API Error:', error);
     throw error;
   }
   
@@ -107,83 +115,131 @@ export const apiClient = {
    * GET request
    */
   async get<T>(url: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(url, {
-      ...options,
-      method: 'GET',
-      headers: createHeaders(options?.headers),
-    });
-    return handleResponse<T>(response);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        method: 'GET',
+        headers: createHeaders(options?.headers),
+      });
+      return handleResponse<T>(response);
+    } catch (error) {
+      console.error('Network error:', error);
+      throw {
+        message: 'Network error. Please check if the server is running.',
+        statusCode: 0,
+      } as ApiError;
+    }
   },
 
   /**
    * POST request
    */
   async post<T>(url: string, data?: unknown, options?: RequestInit): Promise<T> {
-    const response = await fetch(url, {
-      ...options,
-      method: 'POST',
-      headers: createHeaders(options?.headers),
-      body: data ? JSON.stringify(data) : undefined,
-    });
-    return handleResponse<T>(response);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        method: 'POST',
+        headers: createHeaders(options?.headers),
+        body: data ? JSON.stringify(data) : undefined,
+      });
+      return handleResponse<T>(response);
+    } catch (error) {
+      console.error('Network error:', error);
+      throw {
+        message: 'Network error. Please check if the server is running.',
+        statusCode: 0,
+      } as ApiError;
+    }
   },
 
   /**
    * PUT request
    */
   async put<T>(url: string, data?: unknown, options?: RequestInit): Promise<T> {
-    const response = await fetch(url, {
-      ...options,
-      method: 'PUT',
-      headers: createHeaders(options?.headers),
-      body: data ? JSON.stringify(data) : undefined,
-    });
-    return handleResponse<T>(response);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        method: 'PUT',
+        headers: createHeaders(options?.headers),
+        body: data ? JSON.stringify(data) : undefined,
+      });
+      return handleResponse<T>(response);
+    } catch (error) {
+      console.error('Network error:', error);
+      throw {
+        message: 'Network error. Please check if the server is running.',
+        statusCode: 0,
+      } as ApiError;
+    }
   },
 
   /**
    * PATCH request
    */
   async patch<T>(url: string, data?: unknown, options?: RequestInit): Promise<T> {
-    const response = await fetch(url, {
-      ...options,
-      method: 'PATCH',
-      headers: createHeaders(options?.headers),
-      body: data ? JSON.stringify(data) : undefined,
-    });
-    return handleResponse<T>(response);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        method: 'PATCH',
+        headers: createHeaders(options?.headers),
+        body: data ? JSON.stringify(data) : undefined,
+      });
+      return handleResponse<T>(response);
+    } catch (error) {
+      console.error('Network error:', error);
+      throw {
+        message: 'Network error. Please check if the server is running.',
+        statusCode: 0,
+      } as ApiError;
+    }
   },
 
   /**
    * DELETE request
    */
   async delete<T>(url: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(url, {
-      ...options,
-      method: 'DELETE',
-      headers: createHeaders(options?.headers),
-    });
-    return handleResponse<T>(response);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        method: 'DELETE',
+        headers: createHeaders(options?.headers),
+      });
+      return handleResponse<T>(response);
+    } catch (error) {
+      console.error('Network error:', error);
+      throw {
+        message: 'Network error. Please check if the server is running.',
+        statusCode: 0,
+      } as ApiError;
+    }
   },
 
   /**
    * Upload file
    */
   async upload<T>(url: string, formData: FormData, options?: RequestInit): Promise<T> {
-    const headers = new Headers(options?.headers);
-    const token = getAccessToken();
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+    try {
+      const headers = new Headers(options?.headers);
+      const token = getAccessToken();
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      // Don't set Content-Type for FormData - browser will set it with boundary
+      
+      const response = await fetch(url, {
+        ...options,
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+      return handleResponse<T>(response);
+    } catch (error) {
+      console.error('Network error:', error);
+      throw {
+        message: 'Network error. Please check if the server is running.',
+        statusCode: 0,
+      } as ApiError;
     }
-    // Don't set Content-Type for FormData - browser will set it with boundary
-    
-    const response = await fetch(url, {
-      ...options,
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-    return handleResponse<T>(response);
   },
 };
 

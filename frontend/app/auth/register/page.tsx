@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store';
+import { ROUTES } from '@/lib/constants';
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui';
 
 export default function RegisterPage() {
-  const { register, isLoading } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -16,6 +18,27 @@ export default function RegisterPage() {
     confirmPassword: '',
   });
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasRedirected = useRef(false);
+
+  // Get store state and actions
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const storeRegister = useAuthStore((state) => state.register);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    console.log('[Register]', { isInitialized, isLoading, isAuthenticated, user, hasRedirected: hasRedirected.current });
+    if (!isInitialized || isLoading || hasRedirected.current) return;
+
+    if (isAuthenticated && user) {
+      console.log('[Register] Already authenticated, redirecting');
+      hasRedirected.current = true;
+      window.location.href = ROUTES.PATIENT.DASHBOARD;
+    }
+  }, [isInitialized, isLoading, isAuthenticated, user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -24,30 +47,71 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsSubmitting(true);
 
     const { firstName, lastName, email, phone, password, confirmPassword } = formData;
 
     if (!firstName || !lastName || !email || !password) {
       setError('Please fill in all required fields');
+      setIsSubmitting(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      setIsSubmitting(false);
       return;
     }
 
     if (password.length < 8) {
       setError('Password must be at least 8 characters');
+      setIsSubmitting(false);
       return;
     }
 
     try {
-      await register({ firstName, lastName, email, password, phone: phone || undefined });
-    } catch (err) {
-      setError('Registration failed. Please try again.');
+      await storeRegister({ firstName, lastName, email, password, phone: phone || undefined });
+      
+      // Get the updated user from store after registration
+      const updatedUser = useAuthStore.getState().user;
+      console.log('[Register] Registration successful:', updatedUser?.email);
+      
+      if (updatedUser) {
+        hasRedirected.current = true;
+        window.location.href = ROUTES.PATIENT.DASHBOARD;
+      }
+    } catch (err: unknown) {
+      console.error('Registration error:', err);
+      const apiError = err as { message?: string; errors?: Record<string, string[]> };
+      if (apiError.errors) {
+        const errorMessages = Object.values(apiError.errors).flat().join(', ');
+        setError(errorMessages || 'Registration failed.');
+      } else if (apiError.message) {
+        setError(apiError.message);
+      } else {
+        setError('Registration failed. Please check if the server is running.');
+      }
+      setIsSubmitting(false);
     }
   };
+
+  // Show loading while initializing
+  if (!isInitialized || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Show loading if authenticated (redirect pending)
+  if (isAuthenticated && user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8">
@@ -163,7 +227,7 @@ export default function RegisterPage() {
             </p>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" isLoading={isLoading}>
+            <Button type="submit" className="w-full" isLoading={isSubmitting}>
               Create Account
             </Button>
             <p className="text-sm text-center text-muted-foreground">
