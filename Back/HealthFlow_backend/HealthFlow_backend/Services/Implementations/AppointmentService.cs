@@ -245,33 +245,40 @@ public class AppointmentService : IAppointmentService
             return Enumerable.Empty<TimeSlotDto>();
 
         var dayOfWeek = parsedDate.DayOfWeek;
-        var availability = doctor.Availabilities.FirstOrDefault(a => a.DayOfWeek == dayOfWeek);
+        // Get ALL availabilities for this day of week (not just the first one)
+        var availabilities = doctor.Availabilities.Where(a => a.DayOfWeek == dayOfWeek).ToList();
         
-        if (availability == null) return Enumerable.Empty<TimeSlotDto>();
+        if (!availabilities.Any()) return Enumerable.Empty<TimeSlotDto>();
 
         var appointments = await _unitOfWork.Appointments.GetDoctorAppointmentsForDateAsync(doctorId, parsedDate);
         
         var slots = new List<TimeSlotDto>();
         var slotDuration = TimeSpan.FromMinutes(doctor.ConsultationDuration);
-        var currentTime = availability.StartTime;
 
-        while (currentTime + slotDuration <= availability.EndTime)
+        // Process each availability slot for this day
+        foreach (var availability in availabilities)
         {
-            var slotEnd = currentTime + slotDuration;
-            var isBooked = appointments.Any(a => 
-                (a.StartTime <= currentTime && a.EndTime > currentTime) ||
-                (a.StartTime < slotEnd && a.EndTime >= slotEnd));
+            var currentTime = availability.StartTime;
 
-            slots.Add(new TimeSlotDto(
-                currentTime.ToString(@"hh\:mm"),
-                slotEnd.ToString(@"hh\:mm"),
-                !isBooked
-            ));
+            while (currentTime + slotDuration <= availability.EndTime)
+            {
+                var slotEnd = currentTime + slotDuration;
+                var isBooked = appointments.Any(a => 
+                    (a.StartTime <= currentTime && a.EndTime > currentTime) ||
+                    (a.StartTime < slotEnd && a.EndTime >= slotEnd));
 
-            currentTime = slotEnd;
+                slots.Add(new TimeSlotDto(
+                    currentTime.ToString(@"hh\:mm"),
+                    slotEnd.ToString(@"hh\:mm"),
+                    !isBooked
+                ));
+
+                currentTime = slotEnd;
+            }
         }
 
-        return slots;
+        // Sort slots by start time
+        return slots.OrderBy(s => s.StartTime).ToList();
     }
 
     private AppointmentDto MapToDto(Appointment appointment)

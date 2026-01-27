@@ -8,11 +8,11 @@
 // ============================================
 
 export enum UserRole {
-  Admin = 'Admin',
-  Doctor = 'Doctor',
-  Secretary = 'Secretary',
-  Patient = 'Patient',
-  ClinicManager = 'ClinicManager',
+  Admin = 'admin',
+  Doctor = 'doctor',
+  Secretary = 'secretary',
+  Patient = 'patient',
+  ClinicManager = 'clinicManager',
 }
 
 export enum ConsultationType {

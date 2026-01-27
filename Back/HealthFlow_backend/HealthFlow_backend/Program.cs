@@ -24,8 +24,8 @@ builder.Services.AddControllers()
     {
         // Use camelCase for JSON property names (matches JavaScript conventions)
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        // Convert enums to strings
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        // Convert enums to strings with camelCase naming
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
         // Ignore null values
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });

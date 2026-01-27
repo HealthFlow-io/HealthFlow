@@ -58,14 +58,55 @@ export default function DoctorSchedulePage() {
   const loadAvailability = async (doctorIdParam: string) => {
     try {
       const data = await doctorService.getAvailability(doctorIdParam);
-      setAvailability(data.map((a: DoctorAvailability) => ({
-        id: a.id,
-        dayOfWeek: a.dayOfWeek,
-        startTime: a.startTime,
-        endTime: a.endTime,
-      })));
+      console.log('📅 Loaded availability data from backend:', data);
+      
+      // Map day names to numbers (backend sends strings like "monday", "tuesday")
+      const dayNameToNumber = (dayName: string | number): number => {
+        if (typeof dayName === 'number') return dayName;
+        
+        const dayMap: { [key: string]: number } = {
+          'sunday': 0,
+          'monday': 1,
+          'tuesday': 2,
+          'wednesday': 3,
+          'thursday': 4,
+          'friday': 5,
+          'saturday': 6,
+        };
+        
+        return dayMap[dayName.toLowerCase()] ?? 0;
+      };
+      
+      // Normalize time format (remove seconds if present, e.g., "09:00:00" -> "09:00")
+      const normalizeTime = (time: string) => {
+        if (!time) return '09:00';
+        // If time has seconds (HH:mm:ss), remove them
+        return time.substring(0, 5);
+      };
+      
+      const normalizedAvailability = data.map((a: DoctorAvailability, idx: number) => {
+        const dayNum = dayNameToNumber(a.dayOfWeek);
+        console.log(`Slot ${idx}: Day=${a.dayOfWeek} -> ${dayNum}, Start=${a.startTime}, End=${a.endTime}`);
+        return {
+          id: a.id,
+          dayOfWeek: dayNum,
+          startTime: normalizeTime(a.startTime),
+          endTime: normalizeTime(a.endTime),
+        };
+      });
+      
+      console.log('✅ Normalized availability:', normalizedAvailability);
+      console.log('Days with slots:', [...new Set(normalizedAvailability.map(a => a.dayOfWeek))]);
+      setAvailability(normalizedAvailability);
+      
+      // Auto-select first day that has slots
+      if (normalizedAvailability.length > 0 && selectedDay === null) {
+        const firstDay = normalizedAvailability[0].dayOfWeek;
+        console.log('Auto-selecting day:', firstDay);
+        setSelectedDay(firstDay);
+      }
     } catch (err) {
-      console.error('Failed to load availability:', err);
+      console.error('❌ Failed to load availability:', err);
       // Initialize with empty availability if not found
       setAvailability([]);
     } finally {

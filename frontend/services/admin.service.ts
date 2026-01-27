@@ -6,7 +6,7 @@
 
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
-import { User, Doctor, Clinic, Specialization, ConsultationType, DayOfWeek, PaginatedResponse } from '@/types';
+import { User, Doctor, Clinic, Specialization, ConsultationType, DayOfWeek, PaginatedResponse, UserRole } from '@/types';
 
 // ==================== User DTOs ====================
 // Matches backend AuthDTOs: UserCreateDto
@@ -16,7 +16,7 @@ export interface CreateUserRequest {
   email: string;
   password: string;
   phone?: string;
-  role: 'Patient' | 'Doctor' | 'Secretary' | 'Admin' | 'ClinicManager';
+  role: UserRole;
 }
 
 // Matches backend AdminDTOs: AdminUserUpdateDto
@@ -25,7 +25,7 @@ export interface UpdateUserRequest {
   lastName?: string;
   email?: string;
   phone?: string;
-  role?: 'Patient' | 'Doctor' | 'Secretary' | 'Admin' | 'ClinicManager';
+  role?: UserRole;
   emailVerified?: boolean;
 }
 
@@ -206,8 +206,8 @@ export const adminService = {
   },
 
   // ==================== Secretaries ====================
-  async getSecretaries(): Promise<User[]> {
-    return apiClient.get<User[]>(API_ENDPOINTS.SECRETARY.BASE);
+  async getSecretaries(): Promise<Array<{ id: string; userId: string; user: User; doctors: Doctor[] }>> {
+    return apiClient.get<Array<{ id: string; userId: string; user: User; doctors: Doctor[] }>>(API_ENDPOINTS.SECRETARY.BASE);
   },
 
   // Create secretary requires existing user - pass userId
@@ -220,12 +220,12 @@ export const adminService = {
     return apiClient.post(`${API_ENDPOINTS.SECRETARY.BASE}/${secretaryId}/doctors`, { doctorId });
   },
 
-  // Remove a doctor from secretary
+  // Unassign a doctor from secretary
   async unassignDoctorFromSecretary(secretaryId: string, doctorId: string): Promise<void> {
     return apiClient.delete(`${API_ENDPOINTS.SECRETARY.BASE}/${secretaryId}/doctors/${doctorId}`);
   },
 
-  // Assign multiple doctors by first clearing all then assigning selected ones
+  // Assign multiple doctors by calling the assign endpoint multiple times
   async assignDoctorsToSecretary(secretaryId: string, doctorIds: string[]): Promise<void> {
     // Get currently assigned doctors
     const currentDoctors = await this.getSecretaryDoctors(secretaryId);

@@ -168,8 +168,27 @@ export default function AdminClinicsPage() {
       
       // Extract working hours
       const workingHours = clinic.workingHours || [];
-      const firstOpen = workingHours.find(wh => !wh.isClosed);
-      const closedDays = workingHours.filter(wh => wh.isClosed).map(wh => wh.dayOfWeek);
+      
+      let openTime = '08:00';
+      let closeTime = '18:00';
+      let closedDays: number[] = [];
+      
+      if (workingHours.length > 0) {
+        const firstOpen = workingHours.find(wh => !wh.isClosed);
+        if (firstOpen) {
+          openTime = firstOpen.openTime || '08:00';
+          closeTime = firstOpen.closeTime || '18:00';
+        }
+        closedDays = workingHours.filter(wh => wh.isClosed).map(wh => wh.dayOfWeek);
+      } else if (clinic.openingTime && clinic.closingTime) {
+        // Fallback to old format
+        openTime = clinic.openingTime;
+        closeTime = clinic.closingTime;
+        closedDays = [0]; // Sunday closed by default
+      } else {
+        // No hours set, default to Sunday closed
+        closedDays = [0];
+      }
       
       setFormData({
         name: clinic.name,
@@ -179,9 +198,9 @@ export default function AdminClinicsPage() {
         website: clinic.contactInfo?.website || '',
         latitude: clinic.geoLocation?.latitude?.toString() || '',
         longitude: clinic.geoLocation?.longitude?.toString() || '',
-        openTime: firstOpen?.openTime || clinic.openingTime || '08:00',
-        closeTime: firstOpen?.closeTime || clinic.closingTime || '18:00',
-        closedDays: closedDays.length > 0 ? closedDays : [0],
+        openTime,
+        closeTime,
+        closedDays,
       });
     } else {
       setEditingClinic(null);

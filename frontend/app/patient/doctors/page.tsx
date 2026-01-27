@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button, Card, CardContent, Input } from '@/components/ui';
+import { Button, Card, CardContent, Input, Calendar } from '@/components/ui';
 import { Doctor, Specialization, TimeSlot, AppointmentType } from '@/types';
 import { doctorService, specializationService, appointmentService } from '@/services';
 import { useAuthStore } from '@/store';
@@ -27,6 +27,7 @@ export default function FindDoctorsPage() {
   const [isBooking, setIsBooking] = useState(false);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -68,10 +69,13 @@ export default function FindDoctorsPage() {
   const loadAvailableSlots = async (doctorId: string, date: string) => {
     try {
       setIsLoadingSlots(true);
+      console.log('🔍 Loading slots for doctor:', doctorId, 'date:', date);
       const slots = await appointmentService.getAvailableSlots(doctorId, date);
+      console.log('📊 Received slots from backend:', slots);
+      console.log('✅ Available slots count:', slots.filter(s => s.isAvailable).length);
       setAvailableSlots(slots);
     } catch (err) {
-      console.error('Failed to load slots:', err);
+      console.error('❌ Failed to load slots:', err);
       setAvailableSlots([]);
     } finally {
       setIsLoadingSlots(false);
@@ -79,8 +83,21 @@ export default function FindDoctorsPage() {
   };
 
   const handleDateChange = (date: string) => {
+    // Validate date is not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDateObj = new Date(date);
+    
+    if (selectedDateObj < today) {
+      setError('Cannot select a date in the past');
+      return;
+    }
+    
     setSelectedDate(date);
     setSelectedSlot(null);
+    setShowCalendar(false);
+    setError(''); // Clear any previous errors
+    
     if (selectedDoctor && date) {
       loadAvailableSlots(selectedDoctor.id, date);
     }
@@ -117,6 +134,8 @@ export default function FindDoctorsPage() {
     setAvailableSlots([]);
     setAppointmentReason('');
     setBookingSuccess(false);
+    setShowCalendar(false);
+    setError('');
   };
 
   const filteredDoctors = doctors.filter((doctor) => {
@@ -272,14 +291,40 @@ export default function FindDoctorsPage() {
                   <div className="space-y-4">
                     <div>
                       <label className="text-sm font-medium mb-2 block">Select Date</label>
-                      <Input
-                        type="date"
-                        min={getMinDate()}
-                        value={selectedDate}
-                        onChange={(e) => handleDateChange(e.target.value)}
-                      />
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowCalendar(!showCalendar)}
+                          className="w-full px-3 py-2 border rounded-md bg-background text-left flex items-center justify-between"
+                        >
+                          <span className={selectedDate ? '' : 'text-muted-foreground'}>
+                            {selectedDate ? (() => {
+                              // Parse date correctly to avoid timezone issues
+                              const [year, month, day] = selectedDate.split('-').map(Number);
+                              const date = new Date(year, month - 1, day);
+                              return date.toLocaleDateString('en-US', { 
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              });
+                            })() : 'Click to select a date'}
+                          </span>
+                          <span className="text-xl">📅</span>
+                        </button>
+                        
+                        {showCalendar && (
+                          <div className="absolute top-full left-0 right-0 mt-2 z-50">
+                            <Calendar
+                              value={selectedDate}
+                              onChange={handleDateChange}
+                              minDate={getMinDate()}
+                            />
+                          </div>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        💡 Tip: Available time slots are based on the doctor's schedule for the selected day
+                        💡 Tip: Select a date to see available time slots for that day
                       </p>
                     </div>
 

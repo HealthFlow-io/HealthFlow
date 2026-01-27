@@ -5,17 +5,10 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/compo
 import { adminService, CreateUserRequest, CreateSecretaryRequest } from '@/services';
 import { User, Doctor } from '@/types';
 
-// Backend returns SecretaryProfileDto structure
 interface Secretary {
   id: string;
   userId: string;
-  user: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone?: string;
-  };
+  user: User;
   doctors: Doctor[];
 }
 
@@ -57,23 +50,8 @@ export default function AdminSecretariesPage() {
         adminService.getSecretaries(),
         adminService.getAllDoctors(),
       ]);
-      console.log('Loaded secretaries data:', secretariesData);
-      console.log('Sample secretary structure:', secretariesData[0]);
       setSecretaries(secretariesData);
       setDoctors(doctorsData);
-      
-      // Debug: Check assignments from backend
-      try {
-        const debugResponse = await fetch('http://localhost:5000/api/secretaries/debug/assignments', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        const debugData = await debugResponse.json();
-        console.log('🔍 Debug - All SecretaryDoctor assignments:', debugData);
-      } catch (err) {
-        console.error('Debug endpoint failed:', err);
-      }
     } catch (err) {
       console.error('Failed to load data:', err);
       setError('Failed to load secretaries');
@@ -95,7 +73,7 @@ export default function AdminSecretariesPage() {
         email: formData.email,
         password: formData.password,
         phone: formData.phone || undefined,
-        role: 'Secretary',
+        role: 'secretary' as any,
       };
       const newUser = await adminService.createUser(userRequest);
 
@@ -103,21 +81,10 @@ export default function AdminSecretariesPage() {
       const secretaryRequest: CreateSecretaryRequest = {
         userId: newUser.id,
       };
-      await adminService.createSecretary(secretaryRequest);
+      const newSecretary = await adminService.createSecretary(secretaryRequest);
       
-      // Add to local state with proper structure
-      setSecretaries([...secretaries, {
-        id: newUser.id,
-        userId: newUser.id,
-        user: {
-          id: newUser.id,
-          firstName: newUser.firstName,
-          lastName: newUser.lastName,
-          email: newUser.email,
-          phone: newUser.phone
-        },
-        doctors: []
-      }]);
+      // Reload data to get proper secretary structure
+      await loadData();
       closeModal();
     } catch (err: unknown) {
       const apiError = err as { message?: string };
@@ -154,12 +121,26 @@ export default function AdminSecretariesPage() {
     setError('');
 
     try {
-      console.log('Assigning doctors to secretary:', selectedSecretary.id, 'Doctor IDs:', selectedDoctorIds);
+      // Get current assignments
+      const currentDoctorIds: string[] = await adminService.getSecretaryDoctors(selectedSecretary.id)
+        .then(doctors => doctors.map(d => d.id))
+        .catch(() => []);
       
-      // The backend assigns doctors one by one
-      await adminService.assignDoctorsToSecretary(selectedSecretary.id, selectedDoctorIds);
+      // Find doctors to add (in selectedDoctorIds but not in currentDoctorIds)
+      const doctorsToAdd = selectedDoctorIds.filter(id => !currentDoctorIds.includes(id));
       
-      console.log('Assignment successful, reloading data...');
+      // Find doctors to remove (in currentDoctorIds but not in selectedDoctorIds)
+      const doctorsToRemove = currentDoctorIds.filter(id => !selectedDoctorIds.includes(id));
+      
+      // Add new doctors
+      for (const doctorId of doctorsToAdd) {
+        await adminService.assignDoctorToSecretary(selectedSecretary.id, doctorId);
+      }
+      
+      // Remove unselected doctors
+      for (const doctorId of doctorsToRemove) {
+        await adminService.unassignDoctorFromSecretary(selectedSecretary.id, doctorId);
+      }
       
       // Reload to get updated assignments
       await loadData();
@@ -170,8 +151,7 @@ export default function AdminSecretariesPage() {
       setSelectedSecretary(null);
     } catch (err: unknown) {
       const apiError = err as { message?: string };
-      console.error('Assignment error:', err);
-      setError(apiError.message || 'Failed to assign doctors');
+      setError(apiError.message || 'Failed to update doctor assignments');
     } finally {
       setIsSubmitting(false);
     }
@@ -251,13 +231,13 @@ export default function AdminSecretariesPage() {
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-medium">
-                          {secretary.user?.firstName?.[0]}{secretary.user?.lastName?.[0]}
+                          {secretary.user.firstName?.[0]}{secretary.user.lastName?.[0]}
                         </div>
-                        <span>{secretary.user?.firstName} {secretary.user?.lastName}</span>
+                        <span>{secretary.user.firstName} {secretary.user.lastName}</span>
                       </div>
                     </td>
-                    <td className="p-4">{secretary.user?.email}</td>
-                    <td className="p-4">{secretary.user?.phone || '-'}</td>
+                    <td className="p-4">{secretary.user.email}</td>
+                    <td className="p-4">{secretary.user.phone || '-'}</td>
                     <td className="p-4">
                       {secretary.doctors && secretary.doctors.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
@@ -378,7 +358,7 @@ export default function AdminSecretariesPage() {
           <Card className="w-full max-w-lg mx-4">
             <CardHeader>
               <CardTitle>
-                Assign Doctors to {selectedSecretary.user?.firstName} {selectedSecretary.user?.lastName}
+                Assign Doctors to {selectedSecretary.user.firstName} {selectedSecretary.user.lastName}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 max-h-[60vh] overflow-y-auto">
