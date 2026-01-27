@@ -27,7 +27,7 @@ export const API_ENDPOINTS = {
   USERS: {
     BASE: `${API_BASE_URL}/users`,
     BY_ID: (id: string) => `${API_BASE_URL}/users/${id}`,
-    UPDATE_PROFILE: `${API_BASE_URL}/users/profile`,
+    UPDATE_PROFILE: `${API_BASE_URL}/auth/profile`,
     CHANGE_PASSWORD: `${API_BASE_URL}/users/change-password`,
   },
 

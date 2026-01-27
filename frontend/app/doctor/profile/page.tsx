@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 import { useAuthStore } from '@/store';
-import { doctorService, specializationService } from '@/services';
+import { doctorService, specializationService, authService } from '@/services';
 import { Doctor, Specialization } from '@/types';
 
 interface DoctorProfileFormData {
@@ -23,6 +23,7 @@ interface DoctorProfileFormData {
 export default function DoctorProfilePage() {
   const user = useAuthStore((state) => state.user);
   const [doctor, setDoctor] = useState<Doctor | null>(null);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
   const [specializations, setSpecializations] = useState<Specialization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -57,16 +58,17 @@ export default function DoctorProfilePage() {
         specializationService.getAll(),
       ]);
       setDoctor(doctorData);
+      setDoctorId(doctorData.id);
       setSpecializations(specsData);
       setFormData({
-        firstName: doctorData.firstName || user?.firstName || '',
-        lastName: doctorData.lastName || user?.lastName || '',
-        email: doctorData.email || user?.email || '',
-        phone: doctorData.phone || '',
+        firstName: doctorData.user?.firstName || doctorData.firstName || user?.firstName || '',
+        lastName: doctorData.user?.lastName || doctorData.lastName || user?.lastName || '',
+        email: doctorData.user?.email || doctorData.email || user?.email || '',
+        phone: doctorData.user?.phone || doctorData.phone || '',
         bio: doctorData.bio || '',
         licenseNumber: doctorData.licenseNumber || '',
-        yearsOfExperience: doctorData.yearsOfExperience || 0,
-        consultationFee: doctorData.consultationFee || 0,
+        yearsOfExperience: doctorData.experienceYears || doctorData.yearsOfExperience || 0,
+        consultationFee: doctorData.consultationPrice || doctorData.consultationFee || 0,
         languages: doctorData.languages || [],
         education: doctorData.education || '',
         specializations: doctorData.specializationId ? [doctorData.specializationId] : [],
@@ -99,8 +101,20 @@ export default function DoctorProfilePage() {
     setSuccess('');
 
     try {
-      // DoctorUpdateDto only includes doctor profile fields, not user fields
-      await doctorService.update(user!.id, {
+      if (!doctorId) {
+        setError('Doctor profile not found');
+        return;
+      }
+      
+      // Update user profile (firstName, lastName, phone)
+      await authService.updateProfile({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone || undefined,
+      });
+      
+      // Update doctor profile (doctor-specific fields)
+      await doctorService.update(doctorId, {
         fullName: `${formData.firstName} ${formData.lastName}`,
         bio: formData.bio || undefined,
         experienceYears: formData.yearsOfExperience,
@@ -110,6 +124,7 @@ export default function DoctorProfilePage() {
       });
       setSuccess('Profile updated successfully!');
       setIsEditing(false);
+      await loadProfile();
     } catch (err) {
       console.error('Failed to update profile:', err);
       setError('Failed to update profile');

@@ -132,6 +132,31 @@ public class AuthService : IAuthService
         return MapToUserDto(user);
     }
 
+    public async Task<UserDto> UpdateUserAsync(Guid userId, UserUpdateDto dto)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId);
+        if (user == null)
+        {
+            throw new KeyNotFoundException("User not found");
+        }
+
+        if (!string.IsNullOrEmpty(dto.FirstName))
+            user.FirstName = dto.FirstName;
+        
+        if (!string.IsNullOrEmpty(dto.LastName))
+            user.LastName = dto.LastName;
+        
+        if (dto.Phone != null)
+            user.Phone = dto.Phone;
+
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        return MapToUserDto(user);
+    }
+
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
     {
         var user = await _unitOfWork.Users.GetByEmailAsync(request.Email);

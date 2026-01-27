@@ -141,6 +141,24 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPut("profile")]
+    [Authorize]
+    public async Task<ActionResult<UserDto>> UpdateProfile([FromBody] UserUpdateDto dto)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        try
+        {
+            var user = await _authService.UpdateUserAsync(userId.Value, dto);
+            return Ok(user);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+    }
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");

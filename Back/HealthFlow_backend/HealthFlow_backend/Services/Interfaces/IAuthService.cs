@@ -9,6 +9,7 @@ public interface IAuthService
     Task LogoutAsync(Guid userId);
     Task<LoginResponse> RefreshTokenAsync(RefreshTokenRequest request);
     Task<UserDto> GetCurrentUserAsync(Guid userId);
+    Task<UserDto> UpdateUserAsync(Guid userId, UserUpdateDto dto);
     Task ForgotPasswordAsync(ForgotPasswordRequest request);
     Task ResetPasswordAsync(ResetPasswordRequest request);
     Task VerifyEmailAsync(VerifyEmailRequest request);
