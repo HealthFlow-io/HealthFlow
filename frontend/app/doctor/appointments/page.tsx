@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { useAuthStore } from '@/store';
-import { appointmentService } from '@/services';
+import { appointmentService, doctorService } from '@/services';
 import { Appointment, AppointmentStatus } from '@/types';
 
 const statusColors: Record<AppointmentStatus, string> = {
@@ -19,6 +19,7 @@ type TabType = 'pending' | 'upcoming' | 'past' | 'all';
 export default function DoctorAppointmentsPage() {
   const user = useAuthStore((state) => state.user);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabType>('pending');
@@ -26,16 +27,29 @@ export default function DoctorAppointmentsPage() {
   const [searchDate, setSearchDate] = useState('');
 
   useEffect(() => {
-    if (user?.id) {
-      loadAppointments();
-    }
-  }, [user?.id]);
+    loadDoctorProfile();
+  }, []);
 
-  const loadAppointments = async () => {
+  const loadDoctorProfile = async () => {
+    try {
+      const doctor = await doctorService.getMyProfile();
+      console.log('Doctor profile loaded:', doctor);
+      setDoctorId(doctor.id);
+      await loadAppointments(doctor.id);
+    } catch (err) {
+      console.error('Failed to load doctor profile:', err);
+      setError('Failed to load doctor profile');
+      setIsLoading(false);
+    }
+  };
+
+  const loadAppointments = async (docId: string) => {
     try {
       setIsLoading(true);
       setError('');
-      const response = await appointmentService.getByDoctor(user!.id);
+      console.log('Fetching appointments for doctor ID:', docId);
+      const response = await appointmentService.getByDoctor(docId);
+      console.log('Appointments response:', response);
       setAppointments(response.data || response as unknown as Appointment[]);
     } catch (err) {
       console.error('Failed to load appointments:', err);
@@ -46,37 +60,18 @@ export default function DoctorAppointmentsPage() {
   };
 
   const handleApprove = async (id: string) => {
-    try {
-      setProcessingId(id);
-      await appointmentService.approve(id);
-      setAppointments(appointments.map(apt => 
-        apt.id === id ? { ...apt, status: AppointmentStatus.Approved } : apt
-      ));
-    } catch (err) {
-      console.error('Failed to approve:', err);
-      setError('Failed to approve appointment');
-    } finally {
-      setProcessingId(null);
-    }
+    // Removed - only secretaries can approve
+    setError('Only secretaries can approve appointments');
   };
 
   const handleDecline = async (id: string) => {
-    const reason = prompt('Please provide a reason for declining (optional):');
-    try {
-      setProcessingId(id);
-      await appointmentService.decline(id, reason || undefined);
-      setAppointments(appointments.map(apt => 
-        apt.id === id ? { ...apt, status: AppointmentStatus.Declined } : apt
-      ));
-    } catch (err) {
-      console.error('Failed to decline:', err);
-      setError('Failed to decline appointment');
-    } finally {
-      setProcessingId(null);
-    }
+    // Removed - only secretaries can decline
+    setError('Only secretaries can decline appointments');
   };
 
   const handleComplete = async (id: string) => {
+    if (!doctorId) return;
+    
     try {
       setProcessingId(id);
       await appointmentService.complete(id);
@@ -117,7 +112,16 @@ export default function DoctorAppointmentsPage() {
     return dateA.localeCompare(dateB) || (a.startTime || '').localeCompare(b.startTime || '');
   });
 
+  console.log('Total appointments:', appointments.length);
+  console.log('Active tab:', activeTab);
+  console.log('Filtered appointments:', filteredAppointments.length);
+  console.log('Today:', today);
+
   const pendingCount = appointments.filter(a => a.status === AppointmentStatus.Pending).length;
+  const upcomingCount = appointments.filter(a => {
+    const aptDate = a.date || '';
+    return aptDate >= today && (a.status === AppointmentStatus.Approved || a.status === AppointmentStatus.Pending);
+  }).length;
 
   if (isLoading) {
     return (
@@ -165,13 +169,17 @@ export default function DoctorAppointmentsPage() {
           )}
         </TabButton>
         <TabButton active={activeTab === 'upcoming'} onClick={() => setActiveTab('upcoming')}>
-          Upcoming
+          Upcoming {upcomingCount > 0 && (
+            <span className="ml-1 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
+              {upcomingCount}
+            </span>
+          )}
         </TabButton>
         <TabButton active={activeTab === 'past'} onClick={() => setActiveTab('past')}>
           Past
         </TabButton>
         <TabButton active={activeTab === 'all'} onClick={() => setActiveTab('all')}>
-          All
+          All ({appointments.length})
         </TabButton>
       </div>
 
@@ -264,23 +272,9 @@ function AppointmentCard({ appointment, onApprove, onDecline, onComplete, isProc
 
             <div className="flex gap-2 mt-2">
               {aptStatus === AppointmentStatus.Pending && (
-                <>
-                  <Button 
-                    size="sm" 
-                    onClick={onApprove}
-                    isLoading={isProcessing}
-                  >
-                    Approve
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={onDecline}
-                    disabled={isProcessing}
-                  >
-                    Decline
-                  </Button>
-                </>
+                <div className="text-sm text-muted-foreground italic">
+                  ⏳ Awaiting secretary approval
+                </div>
               )}
               {aptStatus === AppointmentStatus.Approved && (
                 <>

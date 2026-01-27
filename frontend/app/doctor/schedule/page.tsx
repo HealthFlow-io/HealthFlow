@@ -16,6 +16,7 @@ interface AvailabilitySlot {
 
 export default function DoctorSchedulePage() {
   const user = useAuthStore((state) => state.user);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -26,15 +27,37 @@ export default function DoctorSchedulePage() {
 
   useEffect(() => {
     if (user?.id) {
-      loadAvailability();
+      loadDoctorProfile();
     }
   }, [user?.id]);
 
-  const loadAvailability = async () => {
+  const loadDoctorProfile = async () => {
     try {
       setIsLoading(true);
-      setError('');
-      const data = await doctorService.getAvailability(user!.id);
+      // Fetch all doctors and find the one matching current user
+      const response = await doctorService.getAll({});
+      const doctors = response.data || response;
+      const currentDoctor = Array.isArray(doctors) 
+        ? doctors.find((d: any) => d.userId === user!.id)
+        : null;
+      
+      if (currentDoctor) {
+        setDoctorId(currentDoctor.id);
+        await loadAvailability(currentDoctor.id);
+      } else {
+        setError('Doctor profile not found. Please contact support.');
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error('Failed to load doctor profile:', err);
+      setError('Failed to load doctor profile');
+      setIsLoading(false);
+    }
+  };
+
+  const loadAvailability = async (doctorIdParam: string) => {
+    try {
+      const data = await doctorService.getAvailability(doctorIdParam);
       setAvailability(data.map((a: DoctorAvailability) => ({
         id: a.id,
         dayOfWeek: a.dayOfWeek,
@@ -51,11 +74,16 @@ export default function DoctorSchedulePage() {
   };
 
   const handleSave = async () => {
+    if (!doctorId) {
+      setError('Doctor profile not found');
+      return;
+    }
+
     try {
       setIsSaving(true);
       setError('');
       setSuccess('');
-      await doctorService.updateAvailability(user!.id, availability.map(a => ({
+      await doctorService.updateAvailability(doctorId, availability.map(a => ({
         dayOfWeek: a.dayOfWeek,
         startTime: a.startTime,
         endTime: a.endTime,

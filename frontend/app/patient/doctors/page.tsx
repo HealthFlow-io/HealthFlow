@@ -227,14 +227,14 @@ export default function FindDoctorsPage() {
       {/* Booking Modal */}
       {selectedDoctor && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-8">
-          <Card className="w-full max-w-lg mx-4">
+          <Card className="w-full max-w-2xl mx-4">
             <CardContent className="pt-6">
               {bookingSuccess ? (
                 <div className="text-center py-8">
                   <span className="text-6xl block mb-4">✅</span>
                   <h3 className="text-xl font-bold mb-2">Appointment Booked!</h3>
                   <p className="text-muted-foreground mb-4">
-                    Your appointment with Dr. {selectedDoctor.firstName} {selectedDoctor.lastName} has been requested.
+                    Your appointment with Dr. {selectedDoctor.fullName || `${selectedDoctor.firstName || ''} ${selectedDoctor.lastName || ''}`.trim() || selectedDoctor.user?.firstName + ' ' + selectedDoctor.user?.lastName} has been requested.
                     You will receive a confirmation once the doctor approves.
                   </p>
                   <Button onClick={closeBookingModal}>Close</Button>
@@ -242,13 +242,29 @@ export default function FindDoctorsPage() {
               ) : (
                 <>
                   <div className="flex justify-between items-start mb-6">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-xl font-bold">Book Appointment</h3>
-                      <p className="text-muted-foreground">
-                        Dr. {selectedDoctor.firstName} {selectedDoctor.lastName}
-                      </p>
+                      <div className="mt-2 space-y-1">
+                        <p className="font-semibold text-lg">
+                          Dr. {selectedDoctor.fullName || `${selectedDoctor.firstName || selectedDoctor.user?.firstName || ''} ${selectedDoctor.lastName || selectedDoctor.user?.lastName || ''}`.trim()}
+                        </p>
+                        <p className="text-primary text-sm">
+                          {selectedDoctor.specialization?.name || 'General Medicine'}
+                        </p>
+                        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground mt-2">
+                          {(selectedDoctor.yearsOfExperience || selectedDoctor.experienceYears) && (
+                            <span>💼 {selectedDoctor.yearsOfExperience || selectedDoctor.experienceYears} years</span>
+                          )}
+                          {selectedDoctor.consultationDuration && (
+                            <span>⏱️ {selectedDoctor.consultationDuration} min</span>
+                          )}
+                          <span className="font-semibold text-primary">
+                            ${(selectedDoctor.consultationFee || selectedDoctor.consultationPrice || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <button onClick={closeBookingModal} className="text-2xl hover:opacity-70">
+                    <button onClick={closeBookingModal} className="text-2xl hover:opacity-70 ml-4">
                       ×
                     </button>
                   </div>
@@ -262,6 +278,9 @@ export default function FindDoctorsPage() {
                         value={selectedDate}
                         onChange={(e) => handleDateChange(e.target.value)}
                       />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        💡 Tip: Available time slots are based on the doctor's schedule for the selected day
+                      </p>
                     </div>
 
                     {selectedDate && (
@@ -272,25 +291,37 @@ export default function FindDoctorsPage() {
                             <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                           </div>
                         ) : availableSlots.length === 0 ? (
-                          <p className="text-center py-4 text-muted-foreground">
-                            No available slots for this date
-                          </p>
-                        ) : (
-                          <div className="grid grid-cols-3 gap-2">
-                            {availableSlots.map((slot, index) => (
-                              <button
-                                key={index}
-                                onClick={() => setSelectedSlot(slot)}
-                                className={`p-2 text-sm rounded-md border transition-colors ${
-                                  selectedSlot?.startTime === slot.startTime
-                                    ? 'bg-primary text-primary-foreground border-primary'
-                                    : 'hover:bg-muted'
-                                }`}
-                              >
-                                {slot.startTime}
-                              </button>
-                            ))}
+                          <div className="text-center py-6 bg-muted/50 rounded-lg">
+                            <p className="text-muted-foreground">
+                              😔 No available slots for this date
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              The doctor may not be available on this day or all slots are booked
+                            </p>
                           </div>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 bg-muted/20 rounded-lg">
+                              {availableSlots
+                                .filter(slot => slot.isAvailable)
+                                .map((slot, index) => (
+                                  <button
+                                    key={index}
+                                    onClick={() => setSelectedSlot(slot)}
+                                    className={`p-2 text-sm rounded-md border transition-all ${
+                                      selectedSlot?.startTime === slot.startTime
+                                        ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                                        : 'hover:bg-muted hover:border-primary/50'
+                                    }`}
+                                  >
+                                    {slot.startTime}
+                                  </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              ✓ Showing {availableSlots.filter(s => s.isAvailable).length} available slot(s)
+                            </p>
+                          </>
                         )}
                       </div>
                     )}
@@ -365,6 +396,13 @@ interface DoctorCardProps {
 }
 
 function DoctorCard({ doctor, onBookClick }: DoctorCardProps) {
+  // Map backend field names to frontend - handle all possible field name variations
+  const firstName = doctor.firstName || doctor.user?.firstName || '';
+  const lastName = doctor.lastName || doctor.user?.lastName || '';
+  const displayName = firstName && lastName ? `${firstName} ${lastName}` : (doctor.fullName || 'Unknown');
+  const yearsOfExp = doctor.yearsOfExperience || doctor.experienceYears || 0;
+  const fee = doctor.consultationFee || doctor.consultationPrice || 0;
+  
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="pt-6">
@@ -372,26 +410,58 @@ function DoctorCard({ doctor, onBookClick }: DoctorCardProps) {
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <span className="text-2xl">👨‍⚕️</span>
           </div>
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 space-y-3">
             <div>
               <h3 className="font-semibold text-lg">
-                Dr. {doctor.firstName} {doctor.lastName}
+                Dr. {displayName}
               </h3>
-              <p className="text-primary text-sm">
+              <p className="text-primary text-sm font-medium">
                 {doctor.specialization?.name || 'General Medicine'}
               </p>
+              {doctor.subSpecializations && doctor.subSpecializations.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {doctor.subSpecializations.join(', ')}
+                </p>
+              )}
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              {doctor.rating && (
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              {doctor.rating && doctor.rating > 0 && (
                 <span className="flex items-center gap-1">
                   ⭐ {doctor.rating.toFixed(1)}
                 </span>
               )}
-              {doctor.yearsOfExperience && (
-                <span>{doctor.yearsOfExperience} years exp</span>
+              {yearsOfExp > 0 && (
+                <span className="flex items-center gap-1">
+                  💼 {yearsOfExp} years exp
+                </span>
+              )}
+              {doctor.consultationDuration && (
+                <span className="flex items-center gap-1">
+                  ⏱️ {doctor.consultationDuration} min
+                </span>
               )}
             </div>
+
+            {doctor.languages && doctor.languages.length > 0 && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">🌐 Languages: </span>
+                <span>{doctor.languages.join(', ')}</span>
+              </div>
+            )}
+
+            {doctor.consultationTypes && doctor.consultationTypes.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {doctor.consultationTypes.map((type, idx) => (
+                  <span 
+                    key={idx} 
+                    className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full"
+                  >
+                    {type === 'online' ? '💻 Online' : type === 'physical' ? '🏥 In-Person' : '🏠 Home Visit'}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {doctor.bio && (
               <p className="text-sm text-muted-foreground line-clamp-2">
@@ -399,9 +469,15 @@ function DoctorCard({ doctor, onBookClick }: DoctorCardProps) {
               </p>
             )}
 
-            <div className="flex items-center justify-between pt-2">
-              <span className="font-semibold text-primary">
-                ${doctor.consultationFee || 'N/A'}
+            {doctor.education && (
+              <p className="text-xs text-muted-foreground">
+                🎓 {doctor.education}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="font-semibold text-primary text-lg">
+                ${fee > 0 ? fee.toFixed(2) : 'N/A'}
               </span>
               <Button size="sm" onClick={onBookClick}>
                 Book Now

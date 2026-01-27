@@ -11,7 +11,7 @@ namespace HealthFlow_backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize]  // Base authorization - must be authenticated
 public class SecretariesController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;
@@ -22,25 +22,83 @@ public class SecretariesController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin")]  // Admin only
     public async Task<ActionResult<IEnumerable<SecretaryProfileDto>>> GetAll()
     {
         var secretaries = await _unitOfWork.Secretaries.GetAllWithUserAsync();
-        var dtos = secretaries.Select(s => new SecretaryProfileDto(
-            s.Id,
-            s.UserId,
-            new UserDto(
-                s.User.Id,
-                s.User.FirstName,
-                s.User.LastName,
-                s.User.Email,
-                s.User.Phone
-            ),
-            new List<DoctorDto>()
-        ));
+        var dtos = new List<SecretaryProfileDto>();
+
+        foreach (var s in secretaries)
+        {
+            Console.WriteLine($"Processing secretary {s.Id} ({s.User.FirstName} {s.User.LastName})");
+            
+            // Get assigned doctors for each secretary
+            var assignedDoctors = await _unitOfWork.Secretaries.GetAssignedDoctorsAsync(s.Id);
+            
+            Console.WriteLine($"Found {assignedDoctors.Count()} doctors for secretary {s.Id}");
+            
+            var doctorDtos = assignedDoctors.Select(d => new DoctorDto(
+                d.Id,
+                d.FullName,
+                d.Specialization?.Name ?? ""
+            )).ToList();
+
+            dtos.Add(new SecretaryProfileDto(
+                s.Id,
+                s.UserId,
+                new UserDto(
+                    s.User.Id,
+                    s.User.FirstName,
+                    s.User.LastName,
+                    s.User.Email,
+                    s.User.Phone
+                ),
+                doctorDtos
+            ));
+        }
+
+        Console.WriteLine($"Returning {dtos.Count} secretaries");
         return Ok(dtos);
     }
 
+    // Get current secretary profile (for logged-in secretary)
+    [HttpGet("me")]
+    [Authorize(Roles = "Secretary")]
+    public async Task<ActionResult<SecretaryProfileDto>> GetMyProfile()
+    {
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        var secretary = await _unitOfWork.Secretaries.GetByUserIdAsync(userId);
+        
+        if (secretary == null) 
+            return NotFound(new { message = "Secretary profile not found" });
+
+        // Get assigned doctors
+        var assignedDoctors = await _unitOfWork.Secretaries.GetAssignedDoctorsAsync(secretary.Id);
+        var doctorDtos = assignedDoctors.Select(d => new DoctorDto(
+            d.Id,
+            d.FullName,
+            d.Specialization?.Name ?? ""
+        )).ToList();
+
+        // Fetch user details
+        var user = await _unitOfWork.Users.GetByIdAsync(secretary.UserId);
+        
+        return Ok(new SecretaryProfileDto(
+            secretary.Id,
+            secretary.UserId,
+            new UserDto(
+                user!.Id,
+                user.FirstName,
+                user.LastName,
+                user.Email,
+                user.Phone
+            ),
+            doctorDtos
+        ));
+    }
+
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin")]  // Admin only
     public async Task<ActionResult<SecretaryProfileDto>> GetById(Guid id)
     {
         var secretary = await _unitOfWork.Secretaries.GetByIdWithUserAsync(id);
@@ -61,6 +119,7 @@ public class SecretariesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]  // Admin only
     public async Task<ActionResult<SecretaryProfileDto>> Create([FromBody] SecretaryCreateDto dto)
     {
         // Check if user exists and has Secretary role
@@ -100,6 +159,7 @@ public class SecretariesController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]  // Admin only
     public async Task<IActionResult> Delete(Guid id)
     {
         var secretary = await _unitOfWork.Secretaries.GetByIdAsync(id);
@@ -111,7 +171,33 @@ public class SecretariesController : ControllerBase
         return NoContent();
     }
 
+    // Debug endpoint to check SecretaryDoctors table
+    [HttpGet("debug/assignments")]
+    [Authorize(Roles = "Admin")]  // Admin only
+    public async Task<ActionResult> GetAllAssignments()
+    {
+        var assignments = await _unitOfWork.Context.SecretaryDoctors
+            .Include(sd => sd.SecretaryProfile)
+                .ThenInclude(s => s.User)
+            .Include(sd => sd.Doctor)
+            .Select(sd => new
+            {
+                Id = sd.Id,
+                SecretaryId = sd.SecretaryProfileId,
+                SecretaryName = $"{sd.SecretaryProfile.User.FirstName} {sd.SecretaryProfile.User.LastName}",
+                DoctorId = sd.DoctorId,
+                DoctorName = sd.Doctor.FullName
+            })
+            .ToListAsync();
+        
+        return Ok(new { 
+            totalAssignments = assignments.Count,
+            assignments 
+        });
+    }
+
     [HttpGet("{secretaryId}/doctors")]
+    [Authorize(Roles = "Secretary,Admin")]  // Secretary can view their own, Admin can view all
     public async Task<ActionResult<IEnumerable<DoctorDto>>> GetAssignedDoctors(Guid secretaryId)
     {
         var secretary = await _unitOfWork.Secretaries.GetByIdAsync(secretaryId);
@@ -127,6 +213,7 @@ public class SecretariesController : ControllerBase
     }
 
     [HttpPost("{secretaryId}/doctors")]
+    [Authorize(Roles = "Admin")]  // Admin only
     public async Task<IActionResult> AssignDoctor(Guid secretaryId, [FromBody] AssignDoctorDto dto)
     {
         var secretary = await _unitOfWork.Secretaries.GetByIdAsync(secretaryId);
@@ -146,6 +233,7 @@ public class SecretariesController : ControllerBase
     }
 
     [HttpDelete("{secretaryId}/doctors/{doctorId}")]
+    [Authorize(Roles = "Admin")]  // Admin only
     public async Task<IActionResult> UnassignDoctor(Guid secretaryId, Guid doctorId)
     {
         await _unitOfWork.Secretaries.UnassignDoctorAsync(secretaryId, doctorId);

@@ -3,6 +3,7 @@ using HealthFlow_backend.DTOs.Common;
 using HealthFlow_backend.DTOs.Doctors;
 using HealthFlow_backend.Models.Entities;
 using HealthFlow_backend.Models.Enums;
+using HealthFlow_backend.Repositories.Implementations;
 using HealthFlow_backend.Repositories.Interfaces;
 using HealthFlow_backend.Services.Interfaces;
 
@@ -128,11 +129,21 @@ public class DoctorService : IDoctorService
 
     public async Task<IEnumerable<DoctorAvailabilityDto>> SetAvailabilityAsync(Guid doctorId, IEnumerable<DoctorAvailabilityCreateDto> availabilities)
     {
-        // Remove existing availabilities
+        // Verify doctor exists
+        var doctor = await _unitOfWork.Doctors.GetByIdAsync(doctorId);
+        if (doctor == null)
+            throw new ArgumentException("Doctor not found", nameof(doctorId));
+
+        // Get DbContext to manage DoctorAvailabilities directly
+        var context = _unitOfWork as UnitOfWork;
+        if (context == null)
+            throw new InvalidOperationException("Unable to access database context");
+
+        // Remove all existing availabilities for this doctor
         var existing = await _unitOfWork.Doctors.GetAvailabilityAsync(doctorId);
         foreach (var availability in existing)
         {
-            _unitOfWork.Doctors.Query(); // Access to remove via context
+            context.Context.DoctorAvailabilities.Remove(availability);
         }
 
         // Add new availabilities
@@ -145,7 +156,7 @@ public class DoctorService : IDoctorService
             EndTime = TimeSpan.Parse(a.EndTime)
         }).ToList();
 
-        // This would need direct DbContext access for bulk operations
+        await context.Context.DoctorAvailabilities.AddRangeAsync(newAvailabilities);
         await _unitOfWork.SaveChangesAsync();
 
         return await GetAvailabilityAsync(doctorId);

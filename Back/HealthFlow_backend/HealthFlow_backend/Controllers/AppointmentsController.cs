@@ -90,7 +90,7 @@ public class AppointmentsController : ControllerBase
     }
 
     [HttpPost("{id}/approve")]
-    [Authorize(Roles = "Doctor,Secretary,Admin")]
+    [Authorize(Roles = "Secretary,Admin")]
     public async Task<IActionResult> Approve(Guid id)
     {
         var userId = GetCurrentUserId();
@@ -102,7 +102,7 @@ public class AppointmentsController : ControllerBase
     }
 
     [HttpPost("{id}/decline")]
-    [Authorize(Roles = "Doctor,Secretary,Admin")]
+    [Authorize(Roles = "Secretary,Admin")]
     public async Task<IActionResult> Decline(Guid id)
     {
         var result = await _appointmentService.DeclineAsync(id);

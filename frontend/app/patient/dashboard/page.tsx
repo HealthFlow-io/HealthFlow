@@ -214,38 +214,75 @@ function QuickActionCard({
 
 function AppointmentItem({ appointment }: { appointment: Appointment }) {
   const doctor = appointment.doctor;
-  const doctorName = doctor 
-    ? `Dr. ${doctor.firstName} ${doctor.lastName}`
-    : 'Doctor';
+  const doctorName = doctor?.fullName || 
+    (doctor?.firstName && doctor?.lastName ? `${doctor.firstName} ${doctor.lastName}` : null) ||
+    (doctor?.user ? `${doctor.user.firstName} ${doctor.user.lastName}` : 'Doctor');
   const specialization = doctor?.specialization?.name || 'General';
+  const clinicName = appointment.clinic?.name || 'Not specified';
   const aptDate = appointment.date || '';
   const isOnline = appointment.type === 'ONLINE';
 
   const statusColors: Record<string, string> = {
-    Pending: 'bg-yellow-100 text-yellow-800',
-    Approved: 'bg-green-100 text-green-800',
+    Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    Approved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    Declined: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
   };
 
   return (
-    <div className="flex items-center justify-between p-4 border rounded-lg">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-          <span className="text-xl">👨‍⚕️</span>
+    <div className="flex flex-col gap-3 p-4 border rounded-lg hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-4 flex-1">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <span className="text-xl">👨‍⚕️</span>
+          </div>
+          <div className="flex-1">
+            <h4 className="font-medium">Dr. {doctorName}</h4>
+            <p className="text-sm text-muted-foreground">{specialization}</p>
+            {!isOnline && (
+              <p className="text-xs text-muted-foreground mt-1">
+                📍 {clinicName}
+              </p>
+            )}
+          </div>
         </div>
-        <div>
-          <h4 className="font-medium">{doctorName}</h4>
-          <p className="text-sm text-muted-foreground">{specialization}</p>
-        </div>
-      </div>
-      <div className="text-right">
-        <p className="font-medium">{formatDate(aptDate)}</p>
-        <p className="text-sm text-muted-foreground">
-          {appointment.startTime} • {isOnline ? '💻 Online' : '🏥 In-person'}
-        </p>
-        <span className={`px-2 py-0.5 rounded-full text-xs ${statusColors[appointment.status] || 'bg-gray-100'}`}>
+        <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${statusColors[appointment.status] || 'bg-gray-100'}`}>
           {appointment.status}
         </span>
       </div>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <span>📅</span>
+          <span>{formatDate(aptDate)}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span>🕐</span>
+          <span>{appointment.startTime} - {appointment.endTime}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span>{isOnline ? '💻' : '🏥'}</span>
+          <span>{isOnline ? 'Online' : 'In-person'}</span>
+        </div>
+      </div>
+
+      {appointment.reason && (
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium">Reason:</span> {appointment.reason}
+        </p>
+      )}
+
+      {isOnline && appointment.meetingLink && appointment.status === AppointmentStatus.Approved && (
+        <div className="pt-2 border-t">
+          <a 
+            href={appointment.meetingLink} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline flex items-center gap-1"
+          >
+            🔗 Join Meeting
+          </a>
+        </div>
+      )}
     </div>
   );
 }

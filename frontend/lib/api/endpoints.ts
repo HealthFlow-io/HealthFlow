@@ -35,6 +35,7 @@ export const API_ENDPOINTS = {
   DOCTORS: {
     BASE: `${API_BASE_URL}/doctors`,
     BY_ID: (id: string) => `${API_BASE_URL}/doctors/${id}`,
+    ME: `${API_BASE_URL}/doctors/me`,
     SEARCH: `${API_BASE_URL}/doctors/search`,
     BY_SPECIALIZATION: (specializationId: string) => `${API_BASE_URL}/doctors/specialization/${specializationId}`,
     BY_CLINIC: (clinicId: string) => `${API_BASE_URL}/doctors/clinic/${clinicId}`,
@@ -86,6 +87,7 @@ export const API_ENDPOINTS = {
   SECRETARY: {
     BASE: `${API_BASE_URL}/secretaries`,
     BY_ID: (id: string) => `${API_BASE_URL}/secretaries/${id}`,
+    ME: `${API_BASE_URL}/secretaries/me`,
     ASSIGNED_DOCTORS: (secretaryId: string) => `${API_BASE_URL}/secretaries/${secretaryId}/doctors`,
   },
 

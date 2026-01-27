@@ -220,15 +220,38 @@ export const adminService = {
     return apiClient.post(`${API_ENDPOINTS.SECRETARY.BASE}/${secretaryId}/doctors`, { doctorId });
   },
 
-  // Assign multiple doctors by calling the assign endpoint multiple times
+  // Remove a doctor from secretary
+  async unassignDoctorFromSecretary(secretaryId: string, doctorId: string): Promise<void> {
+    return apiClient.delete(`${API_ENDPOINTS.SECRETARY.BASE}/${secretaryId}/doctors/${doctorId}`);
+  },
+
+  // Assign multiple doctors by first clearing all then assigning selected ones
   async assignDoctorsToSecretary(secretaryId: string, doctorIds: string[]): Promise<void> {
+    // Get currently assigned doctors
+    const currentDoctors = await this.getSecretaryDoctors(secretaryId);
+    const currentDoctorIds = currentDoctors.map(d => d.id);
+    
+    // Remove doctors that are not in the new list
+    for (const currentDoctorId of currentDoctorIds) {
+      if (!doctorIds.includes(currentDoctorId)) {
+        await this.unassignDoctorFromSecretary(secretaryId, currentDoctorId);
+      }
+    }
+    
+    // Add doctors that are in the new list but not currently assigned
     for (const doctorId of doctorIds) {
-      await apiClient.post(`${API_ENDPOINTS.SECRETARY.BASE}/${secretaryId}/doctors`, { doctorId });
+      if (!currentDoctorIds.includes(doctorId)) {
+        await this.assignDoctorToSecretary(secretaryId, doctorId);
+      }
     }
   },
 
   async getSecretaryDoctors(secretaryId: string): Promise<Doctor[]> {
     return apiClient.get<Doctor[]>(API_ENDPOINTS.SECRETARY.ASSIGNED_DOCTORS(secretaryId));
+  },
+
+  async getMySecretaryProfile(): Promise<{ id: string; userId: string; user: any; doctors: Doctor[] }> {
+    return apiClient.get(API_ENDPOINTS.SECRETARY.ME);
   },
 
   // ==================== Statistics ====================

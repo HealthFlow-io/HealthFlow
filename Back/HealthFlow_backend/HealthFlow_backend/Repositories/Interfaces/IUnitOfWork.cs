@@ -1,7 +1,10 @@
+using HealthFlow_backend.Data;
+
 namespace HealthFlow_backend.Repositories.Interfaces;
 
 public interface IUnitOfWork : IDisposable
 {
+    ApplicationDbContext Context { get; }
     IUserRepository Users { get; }
     IDoctorRepository Doctors { get; }
     ISpecializationRepository Specializations { get; }

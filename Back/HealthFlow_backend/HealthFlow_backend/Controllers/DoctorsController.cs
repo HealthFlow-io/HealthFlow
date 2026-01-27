@@ -34,6 +34,19 @@ public class DoctorsController : ControllerBase
         return Ok(doctor);
     }
 
+    [HttpGet("me")]
+    [Authorize(Roles = "Doctor")]
+    public async Task<ActionResult<DoctorDto>> GetMyProfile()
+    {
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+        var doctor = await _doctorService.GetByUserIdAsync(userId);
+        
+        if (doctor == null) 
+            return NotFound(new { message = "Doctor profile not found" });
+
+        return Ok(doctor);
+    }
+
     [HttpGet("search")]
     public async Task<ActionResult<PaginatedResponse<DoctorDto>>> Search([FromQuery] DoctorSearchParams searchParams)
     {

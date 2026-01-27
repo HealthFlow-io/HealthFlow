@@ -21,6 +21,8 @@ public class UnitOfWork : IUnitOfWork
         _context = context;
     }
 
+    public ApplicationDbContext Context => _context;
+
     public IUserRepository Users => _users ??= new UserRepository(_context);
     public IDoctorRepository Doctors => _doctors ??= new DoctorRepository(_context);
     public ISpecializationRepository Specializations => _specializations ??= new SpecializationRepository(_context);

@@ -5,8 +5,18 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/compo
 import { adminService, CreateUserRequest, CreateSecretaryRequest } from '@/services';
 import { User, Doctor } from '@/types';
 
-interface Secretary extends User {
-  assignedDoctors?: Doctor[];
+// Backend returns SecretaryProfileDto structure
+interface Secretary {
+  id: string;
+  userId: string;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+  };
+  doctors: Doctor[];
 }
 
 // Form for creating new secretary (creates user + secretary profile)
@@ -47,8 +57,23 @@ export default function AdminSecretariesPage() {
         adminService.getSecretaries(),
         adminService.getAllDoctors(),
       ]);
+      console.log('Loaded secretaries data:', secretariesData);
+      console.log('Sample secretary structure:', secretariesData[0]);
       setSecretaries(secretariesData);
       setDoctors(doctorsData);
+      
+      // Debug: Check assignments from backend
+      try {
+        const debugResponse = await fetch('http://localhost:5000/api/secretaries/debug/assignments', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        const debugData = await debugResponse.json();
+        console.log('🔍 Debug - All SecretaryDoctor assignments:', debugData);
+      } catch (err) {
+        console.error('Debug endpoint failed:', err);
+      }
     } catch (err) {
       console.error('Failed to load data:', err);
       setError('Failed to load secretaries');
@@ -80,8 +105,19 @@ export default function AdminSecretariesPage() {
       };
       await adminService.createSecretary(secretaryRequest);
       
-      // Add to local state
-      setSecretaries([...secretaries, { ...newUser, assignedDoctors: [] }]);
+      // Add to local state with proper structure
+      setSecretaries([...secretaries, {
+        id: newUser.id,
+        userId: newUser.id,
+        user: {
+          id: newUser.id,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          email: newUser.email,
+          phone: newUser.phone
+        },
+        doctors: []
+      }]);
       closeModal();
     } catch (err: unknown) {
       const apiError = err as { message?: string };
@@ -106,14 +142,8 @@ export default function AdminSecretariesPage() {
   const openAssignModal = async (secretary: Secretary) => {
     setSelectedSecretary(secretary);
     
-    // Load current assigned doctors for this secretary
-    try {
-      const assignedDoctors = await adminService.getSecretaryDoctors(secretary.id);
-      setSelectedDoctorIds(assignedDoctors.map(d => d.id));
-    } catch {
-      // If no doctors assigned yet, start with empty array
-      setSelectedDoctorIds([]);
-    }
+    // Use doctors already loaded from the secretary object
+    setSelectedDoctorIds(secretary.doctors?.map(d => d.id) || []);
     
     setShowAssignModal(true);
   };
@@ -124,15 +154,23 @@ export default function AdminSecretariesPage() {
     setError('');
 
     try {
+      console.log('Assigning doctors to secretary:', selectedSecretary.id, 'Doctor IDs:', selectedDoctorIds);
+      
       // The backend assigns doctors one by one
       await adminService.assignDoctorsToSecretary(selectedSecretary.id, selectedDoctorIds);
       
+      console.log('Assignment successful, reloading data...');
+      
       // Reload to get updated assignments
       await loadData();
+      
+      console.log('Data reloaded');
+      
       setShowAssignModal(false);
       setSelectedSecretary(null);
     } catch (err: unknown) {
       const apiError = err as { message?: string };
+      console.error('Assignment error:', err);
       setError(apiError.message || 'Failed to assign doctors');
     } finally {
       setIsSubmitting(false);
@@ -221,9 +259,9 @@ export default function AdminSecretariesPage() {
                     <td className="p-4">{secretary.user?.email}</td>
                     <td className="p-4">{secretary.user?.phone || '-'}</td>
                     <td className="p-4">
-                      {secretary.assignedDoctors && secretary.assignedDoctors.length > 0 ? (
+                      {secretary.doctors && secretary.doctors.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {secretary.assignedDoctors.slice(0, 3).map((doctor) => (
+                          {secretary.doctors.slice(0, 3).map((doctor) => (
                             <span
                               key={doctor.id}
                               className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800"
@@ -231,9 +269,9 @@ export default function AdminSecretariesPage() {
                               Dr. {getDoctorName(doctor).split(' ')[0]}
                             </span>
                           ))}
-                          {secretary.assignedDoctors.length > 3 && (
+                          {secretary.doctors.length > 3 && (
                             <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
-                              +{secretary.assignedDoctors.length - 3} more
+                              +{secretary.doctors.length - 3} more
                             </span>
                           )}
                         </div>
