@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
 import { useAuthStore } from '@/store';
-import { appointmentService } from '@/services';
+import { appointmentService, doctorService } from '@/services';
 import { Appointment, AppointmentStatus } from '@/types';
 import { ROUTES } from '@/lib/constants';
 
@@ -17,6 +17,7 @@ interface DashboardStats {
 
 export default function DoctorDashboard() {
   const user = useAuthStore((state) => state.user);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     todayAppointments: 0,
     pendingRequests: 0,
@@ -30,15 +31,31 @@ export default function DoctorDashboard() {
 
   useEffect(() => {
     if (user?.id) {
-      loadDashboardData();
+      loadDoctorProfile();
     }
   }, [user?.id]);
 
-  const loadDashboardData = async () => {
+  const loadDoctorProfile = async () => {
+    try {
+      const doctor = await doctorService.getMyProfile();
+      console.log('🩺 Doctor profile loaded:', doctor);
+      setDoctorId(doctor.id);
+      await loadDashboardData(doctor.id);
+    } catch (err) {
+      console.error('Failed to load doctor profile:', err);
+      setIsLoading(false);
+    }
+  };
+
+  const loadDashboardData = async (docId: string) => {
     try {
       setIsLoading(true);
-      const response = await appointmentService.getByDoctor(user!.id);
+      console.log('📋 Fetching appointments for doctor ID:', docId);
+      const response = await appointmentService.getByDoctor(docId);
       const appointments = response.data || response as unknown as Appointment[];
+      
+      console.log('📊 Dashboard - Total appointments:', appointments.length);
+      console.log('📊 Dashboard - Appointment statuses:', appointments.map(a => ({ id: a.id, status: a.status, type: typeof a.status })));
       
       const today = new Date().toISOString().split('T')[0];
       const weekStart = new Date();
@@ -49,20 +66,28 @@ export default function DoctorDashboard() {
       // Filter today's appointments
       const todaysApts = appointments.filter(a => {
         const date = a.date || '';
-        return date === today && a.status !== AppointmentStatus.Cancelled;
+        const status = String(a.status).toLowerCase();
+        return date === today && status !== 'cancelled';
       });
       
-      // Pending requests
-      const pending = appointments.filter(a => a.status === AppointmentStatus.Pending);
+      // Pending requests - handle lowercase status from backend
+      const pending = appointments.filter(a => 
+        String(a.status).toLowerCase() === 'pending'
+      );
+      
+      console.log('⏳ Pending appointments found:', pending.length);
       
       // This week
       const weekApts = appointments.filter(a => {
         const date = new Date(a.date || '');
-        return date >= weekStart && date <= weekEnd && a.status !== AppointmentStatus.Cancelled;
+        const status = String(a.status).toLowerCase();
+        return date >= weekStart && date <= weekEnd && status !== 'cancelled';
       });
       
       // Completed today
-      const completedToday = todaysApts.filter(a => a.status === AppointmentStatus.Done).length;
+      const completedToday = todaysApts.filter(a => 
+        String(a.status).toLowerCase() === 'done'
+      ).length;
       
       setStats({
         todayAppointments: todaysApts.length,
@@ -86,10 +111,11 @@ export default function DoctorDashboard() {
   };
 
   const handleApprove = async (id: string) => {
+    if (!doctorId) return;
     try {
       setProcessingId(id);
       await appointmentService.approve(id);
-      await loadDashboardData();
+      await loadDashboardData(doctorId);
     } catch (err) {
       console.error('Failed to approve:', err);
     } finally {
@@ -99,10 +125,11 @@ export default function DoctorDashboard() {
 
   const handleDecline = async (id: string) => {
     if (!confirm('Are you sure you want to decline this appointment?')) return;
+    if (!doctorId) return;
     try {
       setProcessingId(id);
       await appointmentService.decline(id);
-      await loadDashboardData();
+      await loadDashboardData(doctorId);
     } catch (err) {
       console.error('Failed to decline:', err);
     } finally {
@@ -111,10 +138,11 @@ export default function DoctorDashboard() {
   };
 
   const handleComplete = async (id: string) => {
+    if (!doctorId) return;
     try {
       setProcessingId(id);
       await appointmentService.complete(id);
-      await loadDashboardData();
+      await loadDashboardData(doctorId);
     } catch (err) {
       console.error('Failed to complete:', err);
     } finally {
@@ -212,7 +240,7 @@ export default function DoctorDashboard() {
 
       {/* Pending Requests */}
       {pendingAppointments.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50/50">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-yellow-800">Pending Appointment Requests</CardTitle>
             <Link href={ROUTES.DOCTOR.APPOINTMENTS}>
@@ -222,7 +250,7 @@ export default function DoctorDashboard() {
           <CardContent>
             <div className="space-y-3">
               {pendingAppointments.map((apt) => (
-                <div key={apt.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                <div key={apt.id} className="flex items-center justify-between p-3 rounded-lg border">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                       👤

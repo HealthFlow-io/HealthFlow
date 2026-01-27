@@ -60,13 +60,42 @@ export default function DoctorAppointmentsPage() {
   };
 
   const handleApprove = async (id: string) => {
-    // Removed - only secretaries can approve
-    setError('Only secretaries can approve appointments');
+    if (!doctorId) return;
+    
+    try {
+      setProcessingId(id);
+      setError('');
+      await appointmentService.approve(id);
+      // Update local state
+      setAppointments(appointments.map(apt => 
+        apt.id === id ? { ...apt, status: 'approved' as any } : apt
+      ));
+    } catch (err) {
+      console.error('Failed to approve:', err);
+      setError('Failed to approve appointment');
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const handleDecline = async (id: string) => {
-    // Removed - only secretaries can decline
-    setError('Only secretaries can decline appointments');
+    if (!confirm('Are you sure you want to decline this appointment?')) return;
+    if (!doctorId) return;
+    
+    try {
+      setProcessingId(id);
+      setError('');
+      await appointmentService.decline(id);
+      // Update local state
+      setAppointments(appointments.map(apt => 
+        apt.id === id ? { ...apt, status: 'declined' as any } : apt
+      ));
+    } catch (err) {
+      console.error('Failed to decline:', err);
+      setError('Failed to decline appointment');
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const handleComplete = async (id: string) => {
@@ -94,16 +123,18 @@ export default function DoctorAppointmentsPage() {
     // Filter by search date
     if (searchDate && aptDate !== searchDate) return false;
     
-    // Filter by tab
+    // Filter by tab - handle both string "Pending" and enum, case-insensitive
     if (activeTab === 'pending') {
-      return apt.status === AppointmentStatus.Pending;
+      const status = String(apt.status).toLowerCase();
+      return status === 'pending';
     }
     if (activeTab === 'upcoming') {
-      return aptDate >= today && 
-        (apt.status === AppointmentStatus.Approved || apt.status === AppointmentStatus.Pending);
+      const status = String(apt.status).toLowerCase();
+      return aptDate >= today && (status === 'approved' || status === 'pending');
     }
     if (activeTab === 'past') {
-      return aptDate < today || apt.status === AppointmentStatus.Done;
+      const status = String(apt.status).toLowerCase();
+      return aptDate < today || status === 'done';
     }
     return true;
   }).sort((a, b) => {
@@ -117,10 +148,13 @@ export default function DoctorAppointmentsPage() {
   console.log('Filtered appointments:', filteredAppointments.length);
   console.log('Today:', today);
 
-  const pendingCount = appointments.filter(a => a.status === AppointmentStatus.Pending).length;
+  const pendingCount = appointments.filter(a => 
+    String(a.status).toLowerCase() === 'pending'
+  ).length;
   const upcomingCount = appointments.filter(a => {
     const aptDate = a.date || '';
-    return aptDate >= today && (a.status === AppointmentStatus.Approved || a.status === AppointmentStatus.Pending);
+    const status = String(a.status).toLowerCase();
+    return aptDate >= today && (status === 'approved' || status === 'pending');
   }).length;
 
   if (isLoading) {
@@ -271,12 +305,26 @@ function AppointmentCard({ appointment, onApprove, onDecline, onComplete, isProc
             </span>
 
             <div className="flex gap-2 mt-2">
-              {aptStatus === AppointmentStatus.Pending && (
-                <div className="text-sm text-muted-foreground italic">
-                  ⏳ Awaiting secretary approval
-                </div>
+              {String(aptStatus).toLowerCase() === 'pending' && (
+                <>
+                  <Button 
+                    size="sm" 
+                    onClick={onApprove}
+                    isLoading={isProcessing}
+                  >
+                    ✓ Approve
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="destructive"
+                    onClick={onDecline}
+                    isLoading={isProcessing}
+                  >
+                    ✕ Decline
+                  </Button>
+                </>
               )}
-              {aptStatus === AppointmentStatus.Approved && (
+              {String(aptStatus).toLowerCase() === 'approved' && (
                 <>
                   <Button 
                     size="sm" 

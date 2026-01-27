@@ -53,7 +53,7 @@ export default function DoctorProfilePage() {
     try {
       setIsLoading(true);
       const [doctorData, specsData] = await Promise.all([
-        doctorService.getById(user!.id),
+        doctorService.getMyProfile(),
         specializationService.getAll(),
       ]);
       setDoctor(doctorData);

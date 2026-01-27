@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Calendar Component
  * A simple date picker calendar for selecting dates
