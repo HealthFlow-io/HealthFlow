@@ -54,6 +54,12 @@ export default function SecretaryLayout({ children }: SecretaryLayoutProps) {
               label="My Doctors"
               active={pathname === ROUTES.SECRETARY.DOCTORS}
             />
+            <NavItem 
+              href={ROUTES.SECRETARY.PATIENTS} 
+              icon="👥" 
+              label="Patients"
+              active={pathname?.startsWith(ROUTES.SECRETARY.PATIENTS)}
+            />
           </nav>
 
           <div className="p-4 border-t">

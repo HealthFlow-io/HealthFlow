@@ -12,6 +12,7 @@ public class UnitOfWork : IUnitOfWork
     private IAppointmentRepository? _appointments;
     private IClinicRepository? _clinics;
     private IMedicalRecordRepository? _medicalRecords;
+    private IMedicalRecordAttachmentRepository? _medicalRecordAttachments;
     private ISecretaryRepository? _secretaries;
     private INotificationRepository? _notifications;
     private IFileRepository? _files;
@@ -29,6 +30,7 @@ public class UnitOfWork : IUnitOfWork
     public IAppointmentRepository Appointments => _appointments ??= new AppointmentRepository(_context);
     public IClinicRepository Clinics => _clinics ??= new ClinicRepository(_context);
     public IMedicalRecordRepository MedicalRecords => _medicalRecords ??= new MedicalRecordRepository(_context);
+    public IMedicalRecordAttachmentRepository MedicalRecordAttachments => _medicalRecordAttachments ??= new MedicalRecordAttachmentRepository(_context);
     public ISecretaryRepository Secretaries => _secretaries ??= new SecretaryRepository(_context);
     public INotificationRepository Notifications => _notifications ??= new NotificationRepository(_context);
     public IFileRepository Files => _files ??= new FileRepository(_context);

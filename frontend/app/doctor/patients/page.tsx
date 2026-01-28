@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
+import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@/components/ui';
 import { useAuthStore } from '@/store';
 import { appointmentService, doctorService } from '@/services';
 import { Appointment } from '@/types';
@@ -213,6 +214,13 @@ function PatientCard({ patient }: PatientCardProps) {
               <span>Last visit: {formatDate(patient.lastAppointment)}</span>
             </div>
           )}
+        </div>
+        <div className="mt-4 pt-4 border-t">
+          <Link href={`/doctor/patients/${patient.id}`}>
+            <Button variant="outline" size="sm" className="w-full">
+              View Medical Records
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

@@ -335,13 +335,41 @@ export interface ClinicCreateDto {
 // MEDICAL RECORD TYPES
 // ============================================
 
+export interface VitalSigns {
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  heartRate?: number;
+  temperature?: number;
+  weight?: number;
+  height?: number;
+}
+
+export interface MedicalRecordAttachment {
+  id: string;
+  fileUploadId: string;
+  fileName: string;
+  fileUrl: string;
+  description?: string;
+  attachmentType: string; // Scan, LabResult, Prescription, Xray, Other
+  createdAt: string;
+}
+
 export interface MedicalRecord {
   id: string;
   patientId: string;
   patient?: User;
   doctorId: string;
   doctor?: Doctor;
+  appointmentId?: string;
+  diagnosis?: string;
+  symptoms?: string;
+  treatment?: string;
+  prescription?: string;
   notes: string;
+  vitalSigns?: VitalSigns;
+  followUpDate?: string;
+  followUpNotes?: string;
+  attachments: MedicalRecordAttachment[];
   prescriptionUrl?: string;
   createdAt: string;
   updatedAt?: string;
@@ -349,8 +377,44 @@ export interface MedicalRecord {
 
 export interface MedicalRecordCreateDto {
   patientId: string;
+  appointmentId?: string;
+  diagnosis?: string;
+  symptoms?: string;
+  treatment?: string;
+  prescription?: string;
   notes: string;
+  vitalSigns?: VitalSigns;
+  followUpDate?: string;
+  followUpNotes?: string;
   prescriptionUrl?: string;
+}
+
+export interface MedicalRecordUpdateDto {
+  diagnosis?: string;
+  symptoms?: string;
+  treatment?: string;
+  prescription?: string;
+  notes?: string;
+  vitalSigns?: VitalSigns;
+  followUpDate?: string;
+  followUpNotes?: string;
+  prescriptionUrl?: string;
+}
+
+export interface AddAttachmentDto {
+  fileUploadId: string;
+  description?: string;
+  attachmentType: string;
+}
+
+// ============================================
+// FILE UPLOAD TYPES
+// ============================================
+
+export interface FileUploadResponse {
+  id: string;
+  fileName: string;
+  url: string;
 }
 
 // ============================================

@@ -11,6 +11,7 @@ public interface IUnitOfWork : IDisposable
     IAppointmentRepository Appointments { get; }
     IClinicRepository Clinics { get; }
     IMedicalRecordRepository MedicalRecords { get; }
+    IMedicalRecordAttachmentRepository MedicalRecordAttachments { get; }
     ISecretaryRepository Secretaries { get; }
     INotificationRepository Notifications { get; }
     IFileRepository Files { get; }

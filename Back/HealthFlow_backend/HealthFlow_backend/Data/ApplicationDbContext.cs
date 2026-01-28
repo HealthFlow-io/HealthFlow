@@ -20,6 +20,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Clinic> Clinics { get; set; }
     public DbSet<ClinicWorkingHours> ClinicWorkingHours { get; set; }
     public DbSet<MedicalRecord> MedicalRecords { get; set; }
+    public DbSet<MedicalRecordAttachment> MedicalRecordAttachments { get; set; }
     public DbSet<SecretaryProfile> SecretaryProfiles { get; set; }
     public DbSet<SecretaryDoctor> SecretaryDoctors { get; set; }
     public DbSet<Notification> Notifications { get; set; }
@@ -167,6 +168,11 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Notes).IsRequired();
             entity.Property(e => e.PrescriptionUrl).HasMaxLength(500);
+            entity.Property(e => e.Diagnosis).HasMaxLength(1000);
+            entity.Property(e => e.Symptoms).HasMaxLength(1000);
+            entity.Property(e => e.Treatment).HasMaxLength(2000);
+            entity.Property(e => e.Prescription).HasMaxLength(2000);
+            entity.Property(e => e.FollowUpNotes).HasMaxLength(500);
 
             entity.HasOne(e => e.Patient)
                 .WithMany(u => u.PatientMedicalRecords)
@@ -176,6 +182,29 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.Doctor)
                 .WithMany(d => d.MedicalRecords)
                 .HasForeignKey(e => e.DoctorId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Appointment)
+                .WithMany()
+                .HasForeignKey(e => e.AppointmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // MedicalRecordAttachment configuration
+        modelBuilder.Entity<MedicalRecordAttachment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AttachmentType).HasMaxLength(50);
+            entity.Property(e => e.Description).HasMaxLength(500);
+
+            entity.HasOne(e => e.MedicalRecord)
+                .WithMany(m => m.Attachments)
+                .HasForeignKey(e => e.MedicalRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.FileUpload)
+                .WithMany()
+                .HasForeignKey(e => e.FileUploadId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

@@ -44,10 +44,28 @@ public class MedicalRecordService : IMedicalRecordService
             Id = Guid.NewGuid(),
             PatientId = dto.PatientId,
             DoctorId = doctor.Id,
+            AppointmentId = dto.AppointmentId,
+            Diagnosis = dto.Diagnosis,
+            Symptoms = dto.Symptoms,
+            Treatment = dto.Treatment,
+            Prescription = dto.Prescription,
             Notes = dto.Notes,
+            FollowUpDate = dto.FollowUpDate,
+            FollowUpNotes = dto.FollowUpNotes,
             PrescriptionUrl = dto.PrescriptionUrl,
             CreatedAt = DateTime.UtcNow
         };
+
+        // Set vital signs if provided
+        if (dto.VitalSigns != null)
+        {
+            record.BloodPressureSystolic = dto.VitalSigns.BloodPressureSystolic;
+            record.BloodPressureDiastolic = dto.VitalSigns.BloodPressureDiastolic;
+            record.HeartRate = dto.VitalSigns.HeartRate;
+            record.Temperature = dto.VitalSigns.Temperature;
+            record.Weight = dto.VitalSigns.Weight;
+            record.Height = dto.VitalSigns.Height;
+        }
 
         await _unitOfWork.MedicalRecords.AddAsync(record);
         await _unitOfWork.SaveChangesAsync();
@@ -60,8 +78,25 @@ public class MedicalRecordService : IMedicalRecordService
         var record = await _unitOfWork.MedicalRecords.GetByIdAsync(id);
         if (record == null) return null;
 
+        if (dto.Diagnosis != null) record.Diagnosis = dto.Diagnosis;
+        if (dto.Symptoms != null) record.Symptoms = dto.Symptoms;
+        if (dto.Treatment != null) record.Treatment = dto.Treatment;
+        if (dto.Prescription != null) record.Prescription = dto.Prescription;
         if (dto.Notes != null) record.Notes = dto.Notes;
+        if (dto.FollowUpDate.HasValue) record.FollowUpDate = dto.FollowUpDate;
+        if (dto.FollowUpNotes != null) record.FollowUpNotes = dto.FollowUpNotes;
         if (dto.PrescriptionUrl != null) record.PrescriptionUrl = dto.PrescriptionUrl;
+        
+        if (dto.VitalSigns != null)
+        {
+            record.BloodPressureSystolic = dto.VitalSigns.BloodPressureSystolic;
+            record.BloodPressureDiastolic = dto.VitalSigns.BloodPressureDiastolic;
+            record.HeartRate = dto.VitalSigns.HeartRate;
+            record.Temperature = dto.VitalSigns.Temperature;
+            record.Weight = dto.VitalSigns.Weight;
+            record.Height = dto.VitalSigns.Height;
+        }
+        
         record.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.MedicalRecords.Update(record);
@@ -80,8 +115,73 @@ public class MedicalRecordService : IMedicalRecordService
         return true;
     }
 
+    public async Task<AttachmentDto> AddAttachmentAsync(Guid recordId, AddAttachmentDto dto)
+    {
+        var record = await _unitOfWork.MedicalRecords.GetByIdAsync(recordId);
+        if (record == null)
+            throw new InvalidOperationException("Medical record not found");
+
+        var file = await _unitOfWork.Files.GetByIdAsync(dto.FileUploadId);
+        if (file == null)
+            throw new InvalidOperationException("File not found");
+
+        var attachment = new MedicalRecordAttachment
+        {
+            Id = Guid.NewGuid(),
+            MedicalRecordId = recordId,
+            FileUploadId = dto.FileUploadId,
+            Description = dto.Description,
+            AttachmentType = dto.AttachmentType,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _unitOfWork.MedicalRecordAttachments.AddAsync(attachment);
+        await _unitOfWork.SaveChangesAsync();
+
+        return new AttachmentDto(
+            attachment.Id,
+            file.Id,
+            file.OriginalFileName,
+            $"/api/files/{file.Id}",
+            attachment.Description,
+            attachment.AttachmentType,
+            attachment.CreatedAt
+        );
+    }
+
+    public async Task<bool> RemoveAttachmentAsync(Guid attachmentId)
+    {
+        var attachment = await _unitOfWork.MedicalRecordAttachments.GetByIdAsync(attachmentId);
+        if (attachment == null) return false;
+
+        _unitOfWork.MedicalRecordAttachments.Remove(attachment);
+        await _unitOfWork.SaveChangesAsync();
+        return true;
+    }
+
     private static MedicalRecordDto MapToDto(MedicalRecord record)
     {
+        var vitalSigns = (record.BloodPressureSystolic.HasValue || record.HeartRate.HasValue || 
+                         record.Temperature.HasValue || record.Weight.HasValue)
+            ? new VitalSignsDto(
+                record.BloodPressureSystolic,
+                record.BloodPressureDiastolic,
+                record.HeartRate,
+                record.Temperature,
+                record.Weight,
+                record.Height
+            ) : null;
+
+        var attachments = record.Attachments?.Select(a => new AttachmentDto(
+            a.Id,
+            a.FileUploadId,
+            a.FileUpload?.OriginalFileName ?? "",
+            $"/api/files/{a.FileUploadId}",
+            a.Description,
+            a.AttachmentType,
+            a.CreatedAt
+        )).ToList() ?? new List<AttachmentDto>();
+
         return new MedicalRecordDto(
             record.Id,
             record.PatientId,
@@ -89,7 +189,8 @@ public class MedicalRecordService : IMedicalRecordService
                 record.Patient.Id,
                 record.Patient.FirstName,
                 record.Patient.LastName,
-                record.Patient.Email
+                record.Patient.Email,
+                record.Patient.Phone
             ) : null,
             record.DoctorId,
             record.Doctor != null ? new DoctorDto(
@@ -97,7 +198,16 @@ public class MedicalRecordService : IMedicalRecordService
                 record.Doctor.FullName,
                 record.Doctor.Specialization?.Name ?? ""
             ) : null,
+            record.AppointmentId,
+            record.Diagnosis,
+            record.Symptoms,
+            record.Treatment,
+            record.Prescription,
             record.Notes,
+            vitalSigns,
+            record.FollowUpDate,
+            record.FollowUpNotes,
+            attachments,
             record.PrescriptionUrl,
             record.CreatedAt,
             record.UpdatedAt

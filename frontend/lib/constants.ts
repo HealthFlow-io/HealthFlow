@@ -102,6 +102,7 @@ export const ROUTES = {
     DASHBOARD: '/secretary/dashboard',
     APPOINTMENTS: '/secretary/appointments',
     DOCTORS: '/secretary/doctors',
+    PATIENTS: '/secretary/patients',
   },
   
   // Admin Routes

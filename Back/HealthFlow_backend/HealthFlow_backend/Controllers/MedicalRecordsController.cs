@@ -77,6 +77,30 @@ public class MedicalRecordsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{recordId}/attachments")]
+    [Authorize(Roles = "Doctor")]
+    public async Task<ActionResult<AttachmentDto>> AddAttachment(Guid recordId, [FromBody] AddAttachmentDto dto)
+    {
+        try
+        {
+            var attachment = await _medicalRecordService.AddAttachmentAsync(recordId, dto);
+            return Ok(attachment);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("attachments/{attachmentId}")]
+    [Authorize(Roles = "Doctor,Admin")]
+    public async Task<IActionResult> RemoveAttachment(Guid attachmentId)
+    {
+        var result = await _medicalRecordService.RemoveAttachmentAsync(attachmentId);
+        if (!result) return NotFound();
+        return NoContent();
+    }
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");

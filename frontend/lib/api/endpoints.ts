@@ -88,6 +88,7 @@ export const API_ENDPOINTS = {
     BASE: `${API_BASE_URL}/secretaries`,
     BY_ID: (id: string) => `${API_BASE_URL}/secretaries/${id}`,
     ME: `${API_BASE_URL}/secretaries/me`,
+    MY_PATIENTS: `${API_BASE_URL}/secretaries/me/patients`,
     ASSIGNED_DOCTORS: (secretaryId: string) => `${API_BASE_URL}/secretaries/${secretaryId}/doctors`,
   },
 

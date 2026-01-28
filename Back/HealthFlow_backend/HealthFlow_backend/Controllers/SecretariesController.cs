@@ -96,6 +96,58 @@ public class SecretariesController : ControllerBase
         });
     }
 
+    // Get patients for secretary's assigned doctors
+    [HttpGet("me/patients")]
+    [Authorize(Roles = "Secretary")]
+    public async Task<ActionResult> GetMyPatients()
+    {
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        var secretary = await _unitOfWork.Secretaries.GetByUserIdAsync(userId);
+        
+        if (secretary == null) 
+            return NotFound(new { message = "Secretary profile not found" });
+
+        // Get assigned doctors
+        var assignedDoctors = await _unitOfWork.Secretaries.GetAssignedDoctorsAsync(secretary.Id);
+        var doctorIds = assignedDoctors.Select(d => d.Id).ToList();
+
+        if (!doctorIds.Any())
+            return Ok(new List<object>());
+
+        // Get all appointments for these doctors with Patient included
+        var appointments = await _unitOfWork.Context.Appointments
+            .Include(a => a.Patient)
+            .Where(a => doctorIds.Contains(a.DoctorId))
+            .ToListAsync();
+
+        // Extract unique patients
+        var patientMap = new Dictionary<Guid, object>();
+        foreach (var apt in appointments)
+        {
+            if (apt.Patient != null && !patientMap.ContainsKey(apt.PatientId))
+            {
+                var patientAppointments = appointments.Where(a => a.PatientId == apt.PatientId).ToList();
+                var lastApt = patientAppointments.OrderByDescending(a => a.Date).FirstOrDefault();
+                var lastDoctorName = lastApt != null ? assignedDoctors.FirstOrDefault(d => d.Id == lastApt.DoctorId)?.FullName : null;
+                
+                patientMap[apt.PatientId] = new
+                {
+                    id = apt.Patient.Id,
+                    firstName = apt.Patient.FirstName,
+                    lastName = apt.Patient.LastName,
+                    email = apt.Patient.Email,
+                    phone = apt.Patient.Phone,
+                    appointmentCount = patientAppointments.Count,
+                    lastAppointment = lastApt?.Date,
+                    lastDoctor = lastDoctorName
+                };
+            }
+        }
+
+        var patients = patientMap.Values.ToList();
+        return Ok(patients);
+    }
+
     [HttpGet("{id}")]
     [Authorize(Roles = "Admin")]  // Admin only
     public async Task<ActionResult<SecretaryProfileDto>> GetById(Guid id)
