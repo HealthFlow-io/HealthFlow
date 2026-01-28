@@ -161,11 +161,12 @@ interface AppointmentCardProps {
 }
 
 function AppointmentCard({ appointment, onCancel, isCancelling }: AppointmentCardProps) {
+  console.log('Rendering AppointmentCard for appointment:', appointment);
   const doctor = appointment.doctor;
-  const doctorName = doctor 
-    ? `Dr. ${doctor.firstName} ${doctor.lastName}`
+  const doctorName = doctor?.fullName
+    ? `Dr. ${doctor.fullName}`
     : 'Doctor';
-  const specialization = doctor?.specialization?.name || 'General';
+  const specialization = doctor?.specializationName || 'General';
   const aptDate = appointment.date || '';
   const aptStatus = (appointment.status as AppointmentStatus) || AppointmentStatus.Pending;
 

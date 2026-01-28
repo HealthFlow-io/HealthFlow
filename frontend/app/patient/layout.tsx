@@ -36,6 +36,7 @@ export default function PatientDashboardLayout({ children }: DashboardLayoutProp
           <nav className="flex-1 p-4 space-y-2">
             <NavItem href={ROUTES.PATIENT.DASHBOARD} icon="📊" label="Dashboard" />
             <NavItem href={ROUTES.PATIENT.APPOINTMENTS} icon="📅" label="My Appointments" />
+            <NavItem href={ROUTES.PATIENT.MEDICAL_RECORDS} icon="🏥" label="Medical Records" />
             <NavItem href={ROUTES.PATIENT.DOCTORS} icon="👨‍⚕️" label="Find Doctors" />
             <NavItem href={ROUTES.PATIENT.PROFILE} icon="👤" label="Profile" />
           </nav>

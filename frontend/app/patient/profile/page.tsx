@@ -58,7 +58,7 @@ export default function PatientProfilePage() {
       setIsLoading(true);
       // Try to get extended profile data
       try {
-        const profile = await apiClient.get<ProfileFormData>(`${API_ENDPOINTS.USERS.UPDATE_PROFILE}`);
+        const profile = await apiClient.get<ProfileFormData>(API_ENDPOINTS.AUTH.ME);
         setFormData({
           firstName: profile.firstName || user?.firstName || '',
           lastName: profile.lastName || user?.lastName || '',

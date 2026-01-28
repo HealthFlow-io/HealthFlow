@@ -85,6 +85,7 @@ export const ROUTES = {
     DASHBOARD: '/patient/dashboard',
     APPOINTMENTS: '/patient/appointments',
     DOCTORS: '/patient/doctors',
+    MEDICAL_RECORDS: '/patient/medical-records',
     PROFILE: '/patient/profile',
   },
   

@@ -370,6 +370,7 @@ export default function NewMedicalRecordPage() {
                 name="followUpDate"
                 value={formData.followUpDate || ''}
                 onChange={handleInputChange}
+                className="[&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
               />
             </div>
           </CardContent>

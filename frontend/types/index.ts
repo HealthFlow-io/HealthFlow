@@ -125,6 +125,7 @@ export interface Doctor {
   fullName?: string;
   specializationId: string;
   specialization?: Specialization;
+  specializationName?: string;
   subSpecializations?: string[];
   bio?: string;
   licenseNumber?: string;

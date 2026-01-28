@@ -35,6 +35,7 @@ export default function PatientDashboard() {
       setIsLoading(true);
       const response = await appointmentService.getByPatient(user!.id);
       const appointments = response.data || response as unknown as Appointment[];
+      console.log('All appointments:', appointments);
       
       const today = new Date().toISOString().split('T')[0];
       
@@ -42,11 +43,11 @@ export default function PatientDashboard() {
       const upcoming = appointments.filter(a => {
         const date = a.date || '';
         return date >= today && 
-          (a.status === AppointmentStatus.Approved || a.status === AppointmentStatus.Pending);
+          (a.status === AppointmentStatus.Approved || a.status.toLowerCase() === AppointmentStatus.Pending.toLowerCase());
       });
       
-      const completed = appointments.filter(a => a.status === AppointmentStatus.Done);
-      const pending = appointments.filter(a => a.status === AppointmentStatus.Pending);
+      const completed = appointments.filter(a => a.status.toLowerCase() === AppointmentStatus.Done.toLowerCase());
+      const pending = appointments.filter(a => a.status.toLowerCase() === AppointmentStatus.Pending.toLowerCase());
       
       setStats({
         upcomingAppointments: upcoming.length,
@@ -81,7 +82,7 @@ export default function PatientDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <QuickActionCard
           title="Book Appointment"
           description="Schedule a new consultation"
@@ -93,6 +94,12 @@ export default function PatientDashboard() {
           description="View upcoming visits"
           icon="📋"
           href={ROUTES.PATIENT.APPOINTMENTS}
+        />
+        <QuickActionCard
+          title="Medical Records"
+          description="View your health history"
+          icon="🏥"
+          href={ROUTES.PATIENT.MEDICAL_RECORDS}
         />
         <QuickActionCard
           title="My Profile"
@@ -122,7 +129,9 @@ export default function PatientDashboard() {
             <p className="text-xs text-muted-foreground">
               {stats.upcomingAppointments === 0 
                 ? 'No upcoming appointments' 
-                : `${stats.pendingAppointments} pending approval`}
+                : stats.upcomingAppointments === 1 
+                  ? 'Scheduled appointment' 
+                  : 'Scheduled appointments'}
             </p>
           </CardContent>
         </Card>
@@ -223,9 +232,9 @@ function AppointmentItem({ appointment }: { appointment: Appointment }) {
   const isOnline = appointment.type === 'ONLINE';
 
   const statusColors: Record<string, string> = {
-    Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-    Approved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-    Declined: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    approved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    declined: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
   };
 
   return (
@@ -245,7 +254,7 @@ function AppointmentItem({ appointment }: { appointment: Appointment }) {
             )}
           </div>
         </div>
-        <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${statusColors[appointment.status] || 'bg-gray-100'}`}>
+        <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${statusColors[appointment.status.toLowerCase()] || 'bg-blue-100'}`}>
           {appointment.status}
         </span>
       </div>
@@ -271,7 +280,7 @@ function AppointmentItem({ appointment }: { appointment: Appointment }) {
         </p>
       )}
 
-      {isOnline && appointment.meetingLink && appointment.status === AppointmentStatus.Approved && (
+      {isOnline && appointment.meetingLink && appointment.status.toLowerCase() === AppointmentStatus.Approved.toLowerCase() && (
         <div className="pt-2 border-t">
           <a 
             href={appointment.meetingLink} 
