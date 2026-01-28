@@ -41,6 +41,12 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Healthcare Management System API"
     });
     
+    // Handle duplicate action names
+    c.CustomSchemaIds(type => type.FullName);
+    
+    // Resolve conflicts for actions with the same name
+    c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
+    
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token.",
