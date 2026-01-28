@@ -19,6 +19,8 @@ public class MedicalRecordRepository : Repository<MedicalRecord>, IMedicalRecord
                 .ThenInclude(d => d.Specialization)
             .Include(m => m.Doctor)
                 .ThenInclude(d => d.User)
+            .Include(m => m.Attachments)
+                .ThenInclude(a => a.FileUpload)
             .FirstOrDefaultAsync(m => m.Id == id);
     }
 
@@ -29,6 +31,8 @@ public class MedicalRecordRepository : Repository<MedicalRecord>, IMedicalRecord
                 .ThenInclude(d => d.Specialization)
             .Include(m => m.Doctor)
                 .ThenInclude(d => d.User)
+            .Include(m => m.Attachments)
+                .ThenInclude(a => a.FileUpload)
             .Where(m => m.PatientId == patientId)
             .OrderByDescending(m => m.CreatedAt)
             .ToListAsync();

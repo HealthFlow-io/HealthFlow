@@ -195,7 +195,8 @@ public class MedicalRecordService : IMedicalRecordService
             record.DoctorId,
             record.Doctor != null ? new DoctorDto(
                 record.Doctor.Id,
-                record.Doctor.FullName,
+                record.Doctor.User?.FirstName ?? "",
+                record.Doctor.User?.LastName ?? "",
                 record.Doctor.Specialization?.Name ?? ""
             ) : null,
             record.AppointmentId,

@@ -359,7 +359,12 @@ export interface MedicalRecord {
   patientId: string;
   patient?: User;
   doctorId: string;
-  doctor?: Doctor;
+  doctor?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    specializationName: string;
+  };
   appointmentId?: string;
   diagnosis?: string;
   symptoms?: string;

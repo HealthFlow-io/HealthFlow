@@ -83,6 +83,7 @@ public record PatientDto(
 
 public record DoctorDto(
     Guid Id,
-    string FullName,
+    string FirstName,
+    string LastName,
     string SpecializationName
 );
