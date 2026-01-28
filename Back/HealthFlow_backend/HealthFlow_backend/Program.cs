@@ -232,4 +232,16 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Handle command-line arguments for database seeding
+if (args.Length > 0 && args[0] == "seed")
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    
+    Console.WriteLine("🌱 Starting database seeding...\n");
+    await DatabaseSeeder.SeedAsync(dbContext);
+    Console.WriteLine("\n✅ Seeding completed! You can now start the application.");
+    return;
+}
+
 app.Run();
