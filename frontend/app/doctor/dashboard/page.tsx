@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store';
 import { appointmentService, doctorService } from '@/services';
 import { Appointment, AppointmentStatus } from '@/types';
 import { ROUTES } from '@/lib/constants';
+import { connectToAppointments, disconnectFromAppointments } from '@/lib/signalr';
 
 interface DashboardStats {
   todayAppointments: number;
@@ -34,6 +35,29 @@ export default function DoctorDashboard() {
       loadDoctorProfile();
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!doctorId) return;
+
+    // Connect to SignalR and listen for real-time updates
+    connectToAppointments({
+      onNewRequest: (appointment: Appointment) => {
+        console.log('🔔 New appointment request received:', appointment);
+        // Reload dashboard data to reflect the new appointment
+        loadDashboardData(doctorId);
+      },
+      onStatusChanged: (appointment: Appointment) => {
+        console.log('🔔 Appointment status changed:', appointment);
+        // Reload dashboard data to reflect the status change
+        loadDashboardData(doctorId);
+      },
+    }, { doctorId });
+
+    // Cleanup on unmount
+    return () => {
+      disconnectFromAppointments();
+    };
+  }, [doctorId]);
 
   const loadDoctorProfile = async () => {
     try {

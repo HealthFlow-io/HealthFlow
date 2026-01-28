@@ -5,6 +5,8 @@ using HealthFlow_backend.Models.Entities;
 using HealthFlow_backend.Models.Enums;
 using HealthFlow_backend.Repositories.Interfaces;
 using HealthFlow_backend.Services.Interfaces;
+using Microsoft.AspNetCore.SignalR;
+using HealthFlow_backend.Hubs;
 
 namespace HealthFlow_backend.Services.Implementations;
 
@@ -12,11 +14,13 @@ public class AppointmentService : IAppointmentService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationService _notificationService;
+    private readonly IHubContext<AppointmentHub> _appointmentHub;
 
-    public AppointmentService(IUnitOfWork unitOfWork, INotificationService notificationService)
+    public AppointmentService(IUnitOfWork unitOfWork, INotificationService notificationService, IHubContext<AppointmentHub> appointmentHub)
     {
         _unitOfWork = unitOfWork;
         _notificationService = notificationService;
+        _appointmentHub = appointmentHub;
     }
 
     public async Task<AppointmentDto?> GetByIdAsync(Guid id)
@@ -76,6 +80,8 @@ public class AppointmentService : IAppointmentService
         await _unitOfWork.Appointments.AddAsync(appointment);
         await _unitOfWork.SaveChangesAsync();
 
+        var appointmentDto = (await GetByIdAsync(appointment.Id))!;
+
         // Send notification to doctor
         var doctor = await _unitOfWork.Doctors.GetWithDetailsAsync(dto.DoctorId);
         if (doctor != null)
@@ -87,9 +93,12 @@ public class AppointmentService : IAppointmentService
                 "NewAppointmentRequest",
                 new { appointmentId = appointment.Id }
             );
+
+            // Send real-time SignalR notification to doctor
+            await _appointmentHub.Clients.Group($"doctor_{dto.DoctorId}").SendAsync("NewAppointmentRequest", appointmentDto);
         }
 
-        return (await GetByIdAsync(appointment.Id))!;
+        return appointmentDto;
     }
 
     public async Task<AppointmentDto?> UpdateAsync(Guid id, AppointmentUpdateDto dto)
@@ -131,6 +140,8 @@ public class AppointmentService : IAppointmentService
         _unitOfWork.Appointments.Update(appointment);
         await _unitOfWork.SaveChangesAsync();
 
+        var appointmentDto = await GetByIdAsync(id);
+
         // Notify patient
         await _notificationService.SendAppointmentNotificationAsync(
             appointment.PatientId,
@@ -139,6 +150,10 @@ public class AppointmentService : IAppointmentService
             "AppointmentApproved",
             new { appointmentId = appointment.Id, meetingLink = appointment.MeetingLink }
         );
+
+        // Send real-time SignalR notification
+        await _appointmentHub.Clients.Group($"doctor_{appointment.DoctorId}").SendAsync("AppointmentStatusChanged", appointmentDto);
+        await _appointmentHub.Clients.User(appointment.PatientId.ToString()).SendAsync("AppointmentStatusChanged", appointmentDto);
 
         return true;
     }
@@ -154,6 +169,8 @@ public class AppointmentService : IAppointmentService
         _unitOfWork.Appointments.Update(appointment);
         await _unitOfWork.SaveChangesAsync();
 
+        var appointmentDto = await GetByIdAsync(id);
+
         // Notify patient
         await _notificationService.SendAppointmentNotificationAsync(
             appointment.PatientId,
@@ -162,6 +179,10 @@ public class AppointmentService : IAppointmentService
             "AppointmentDeclined",
             new { appointmentId = appointment.Id }
         );
+
+        // Send real-time SignalR notification
+        await _appointmentHub.Clients.Group($"doctor_{appointment.DoctorId}").SendAsync("AppointmentStatusChanged", appointmentDto);
+        await _appointmentHub.Clients.User(appointment.PatientId.ToString()).SendAsync("AppointmentStatusChanged", appointmentDto);
 
         return true;
     }
@@ -232,6 +253,12 @@ public class AppointmentService : IAppointmentService
 
         _unitOfWork.Appointments.Update(appointment);
         await _unitOfWork.SaveChangesAsync();
+
+        var appointmentDto = await GetByIdAsync(id);
+
+        // Send real-time SignalR notification
+        await _appointmentHub.Clients.Group($"doctor_{appointment.DoctorId}").SendAsync("AppointmentStatusChanged", appointmentDto);
+        await _appointmentHub.Clients.User(appointment.PatientId.ToString()).SendAsync("AppointmentStatusChanged", appointmentDto);
 
         return true;
     }

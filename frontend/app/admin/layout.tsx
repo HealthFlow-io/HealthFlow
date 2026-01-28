@@ -71,7 +71,7 @@ export default function AdminDashboardLayout({ children }: DashboardLayoutProps)
                 <span className="text-xl">🔔</span>
               </button>
               <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
+                {user?.firstName?.[0].toUpperCase()}{user?.lastName?.[0].toUpperCase()}
               </div>
             </div>
           </header>

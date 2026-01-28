@@ -65,29 +65,35 @@ public class SecretariesController : ControllerBase
         if (secretary == null) 
             return NotFound(new { message = "Secretary profile not found" });
 
-        // Get assigned doctors
+        // Get assigned doctors with full details
         var assignedDoctors = await _unitOfWork.Secretaries.GetAssignedDoctorsAsync(secretary.Id);
-        var doctorDtos = assignedDoctors.Select(d => new DoctorDto(
-            d.Id,
-            d.FullName,
-            d.Specialization?.Name ?? ""
-        )).ToList();
+        var doctorDtos = new List<DoctorDtoFull>();
+        
+        foreach (var doctor in assignedDoctors)
+        {
+            // Get full doctor details
+            var fullDoctor = await _unitOfWork.Doctors.GetWithDetailsAsync(doctor.Id);
+            if (fullDoctor != null)
+            {
+                doctorDtos.Add(MapToDoctorDto(fullDoctor));
+            }
+        }
 
         // Fetch user details
         var user = await _unitOfWork.Users.GetByIdAsync(secretary.UserId);
         
-        return Ok(new SecretaryProfileDto(
-            secretary.Id,
-            secretary.UserId,
-            new UserDto(
-                user!.Id,
-                user.FirstName,
-                user.LastName,
-                user.Email,
-                user.Phone
-            ),
-            doctorDtos
-        ));
+        return Ok(new {
+            id = secretary.Id,
+            userId = secretary.UserId,
+            user = new {
+                id = user!.Id,
+                firstName = user.FirstName,
+                lastName = user.LastName,
+                email = user.Email,
+                phone = user.Phone
+            },
+            doctors = doctorDtos
+        });
     }
 
     [HttpGet("{id}")]
@@ -233,5 +239,78 @@ public class SecretariesController : ControllerBase
         await _unitOfWork.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private DoctorDtoFull MapToDoctorDto(Doctor doctor)
+    {
+        var subSpecializations = TryDeserializeList(doctor.SubSpecializations);
+        var languages = TryDeserializeList(doctor.Languages);
+        var consultationTypes = TryDeserializeConsultationTypes(doctor.ConsultationTypes);
+
+        return new DoctorDtoFull(
+            doctor.Id,
+            doctor.UserId,
+            doctor.FullName,
+            doctor.SpecializationId,
+            doctor.Specialization != null ? new HealthFlow_backend.DTOs.Doctors.SpecializationDto(
+                doctor.Specialization.Id,
+                doctor.Specialization.Name,
+                doctor.Specialization.Category,
+                doctor.Specialization.Description
+            ) : null,
+            subSpecializations,
+            doctor.Bio,
+            doctor.ExperienceYears,
+            languages,
+            consultationTypes,
+            doctor.ConsultationDuration,
+            doctor.ConsultationPrice,
+            doctor.ClinicId,
+            doctor.Clinic != null ? new HealthFlow_backend.DTOs.Doctors.ClinicDto(
+                doctor.Clinic.Id,
+                doctor.Clinic.Name,
+                doctor.Clinic.Address,
+                doctor.Clinic.Latitude.HasValue && doctor.Clinic.Longitude.HasValue
+                    ? new HealthFlow_backend.DTOs.Doctors.GeoLocationDto(doctor.Clinic.Latitude.Value, doctor.Clinic.Longitude.Value)
+                    : null,
+                new List<HealthFlow_backend.DTOs.Doctors.WorkingHoursDto>(),
+                new HealthFlow_backend.DTOs.Doctors.ContactInfoDto(doctor.Clinic.Phone, doctor.Clinic.Email, doctor.Clinic.Website)
+            ) : null,
+            doctor.Rating,
+            doctor.User != null ? new HealthFlow_backend.DTOs.Doctors.UserDto(
+                doctor.User.Id,
+                doctor.User.FirstName,
+                doctor.User.LastName,
+                doctor.User.Email,
+                doctor.User.Role,
+                doctor.User.Phone,
+                doctor.User.CreatedAt,
+                doctor.User.UpdatedAt
+            ) : null
+        );
+    }
+
+    private List<string> TryDeserializeList(string json)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
+    private List<ConsultationType> TryDeserializeConsultationTypes(string json)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<ConsultationType>>(json) ?? new List<ConsultationType>();
+        }
+        catch
+        {
+            return new List<ConsultationType>();
+        }
     }
 }

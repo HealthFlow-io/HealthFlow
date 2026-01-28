@@ -92,7 +92,7 @@ export default function SecretaryLayout({ children }: SecretaryLayoutProps) {
               </button>
               <div className="hidden sm:flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/50">
                 <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium text-sm">
-                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  {user?.firstName?.[0].toUpperCase()}{user?.lastName?.[0].toUpperCase()}
                 </div>
                 <div className="hidden lg:block">
                   <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>

@@ -232,7 +232,7 @@ function AppointmentCard({ appointment, onApprove, onDecline, isProcessing }: Ap
   const isPending = String(appointment.status).toLowerCase() === 'pending';
 
   return (
-    <Card className={isPending ? 'border-yellow-200 bg-yellow-50/50' : ''}>
+    <Card className={isPending ? 'border-yellow-200' : ''}>
       <CardContent className="pt-6">
         <div className="flex flex-col md:flex-row gap-4 justify-between">
           <div className="flex gap-4">

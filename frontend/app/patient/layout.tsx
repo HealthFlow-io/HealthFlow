@@ -69,7 +69,7 @@ export default function PatientDashboardLayout({ children }: DashboardLayoutProp
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
               <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
+                {user?.firstName?.[0].toUpperCase()}{user?.lastName?.[0].toUpperCase()}
               </div>
             </div>
           </header>

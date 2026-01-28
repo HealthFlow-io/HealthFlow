@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/u
 import { useAuthStore } from '@/store';
 import { appointmentService, adminService } from '@/services';
 import { Appointment, AppointmentStatus, Doctor } from '@/types';
+import { connectToAppointments, disconnectFromAppointments } from '@/lib/signalr';
 
 interface DashboardStats {
   pendingAppointments: number;
@@ -14,6 +15,7 @@ interface DashboardStats {
 
 export default function SecretaryDashboard() {
   const user = useAuthStore((state) => state.user);
+  const [secretaryId, setSecretaryId] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     pendingAppointments: 0,
     approvedToday: 0,
@@ -33,30 +35,57 @@ export default function SecretaryDashboard() {
       const secretaryProfile = await adminService.getMySecretaryProfile();
       console.log('Secretary profile:', secretaryProfile);
       
+      const secId = secretaryProfile.id;
+      setSecretaryId(secId);
+      
       const doctors = secretaryProfile.doctors || [];
       setAssignedDoctors(doctors);
 
       // Load appointments for all assigned doctors
       const allAppointments: Appointment[] = [];
+      console.log('📋 Loading appointments for doctors:', doctors.map(d => ({ id: d.id, name: d.fullName })));
+      
       for (const doctor of doctors) {
         try {
           const response = await appointmentService.getByDoctor(doctor.id, {});
           const doctorAppointments = response.data || [];
+          console.log(`📊 Doctor ${doctor.fullName} has ${doctorAppointments.length} appointments:`, 
+            doctorAppointments.map(apt => ({ 
+              id: apt.id, 
+              status: apt.status, 
+              statusType: typeof apt.status,
+              date: apt.date 
+            }))
+          );
           allAppointments.push(...doctorAppointments);
         } catch (err) {
           console.error(`Failed to load appointments for doctor ${doctor.id}:`, err);
         }
       }
 
-      // Filter pending appointments
-      const pending = allAppointments.filter(a => a.status === AppointmentStatus.Pending);
+      console.log('📊 Total appointments loaded:', allAppointments.length);
+      console.log('📊 All appointment statuses:', allAppointments.map(a => ({ 
+        id: a.id, 
+        status: a.status, 
+        statusString: String(a.status),
+        statusLower: String(a.status).toLowerCase()
+      })));
+
+      // Filter pending appointments - handle both string and enum values
+      const pending = allAppointments.filter(a => {
+        const status = String(a.status).toLowerCase();
+        return status === 'pending' || a.status === AppointmentStatus.Pending;
+      });
+      
+      console.log('⏳ Pending appointments found:', pending.length, pending.map(p => ({ id: p.id, status: p.status })));
       
       // Count approved today
       const today = new Date().toISOString().split('T')[0];
-      const approvedToday = allAppointments.filter(a => 
-        a.status === AppointmentStatus.Approved && 
-        a.createdAt?.startsWith(today)
-      ).length;
+      const approvedToday = allAppointments.filter(a => {
+        const status = String(a.status).toLowerCase();
+        return (status === 'approved' || a.status === AppointmentStatus.Approved) && 
+               a.createdAt?.startsWith(today);
+      }).length;
 
       setStats({
         pendingAppointments: pending.length,
@@ -76,6 +105,34 @@ export default function SecretaryDashboard() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (!assignedDoctors || assignedDoctors.length === 0 || isLoading) return;
+
+    // Connect to SignalR and listen for real-time updates for all assigned doctors
+    const doctorIds = assignedDoctors.map(d => d.id);
+    
+    console.log('🔌 Connecting to SignalR for doctors:', doctorIds);
+    
+    connectToAppointments({
+      onNewRequest: (appointment: Appointment) => {
+        console.log('🔔 New appointment request received:', appointment);
+        // Reload dashboard data to reflect the new appointment
+        loadDashboardData();
+      },
+      onStatusChanged: (appointment: Appointment) => {
+        console.log('🔔 Appointment status changed:', appointment);
+        // Reload dashboard data to reflect the status change
+        loadDashboardData();
+      },
+    }, { doctorId: doctorIds[0] }); // Connect using first doctor for now
+
+    // Cleanup on unmount
+    return () => {
+      console.log('🔌 Disconnecting from SignalR');
+      disconnectFromAppointments();
+    };
+  }, [assignedDoctors, isLoading, loadDashboardData]);
 
   const handleApprove = async (appointmentId: string) => {
     try {
