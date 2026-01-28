@@ -335,9 +335,9 @@ function ScheduleItem({ appointment, onComplete, isProcessing }: ScheduleItemPro
   const status = appointment.status as AppointmentStatus;
 
   const statusColors: Record<string, string> = {
-    Approved: 'bg-green-100 text-green-800',
-    Done: 'bg-blue-100 text-blue-800',
-    Pending: 'bg-yellow-100 text-yellow-800',
+    approved: 'bg-green-100 text-green-800',
+    done: 'bg-blue-100 text-blue-800',
+    pending: 'bg-yellow-100 text-yellow-800',
   };
 
   return (
@@ -361,7 +361,7 @@ function ScheduleItem({ appointment, onComplete, isProcessing }: ScheduleItemPro
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status] || 'bg-gray-100'}`}>
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status] || 'bg-blue-100'}`}>
           {status}
         </span>
         {status === AppointmentStatus.Approved && (

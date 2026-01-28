@@ -30,6 +30,7 @@ export default function PatientDashboardLayout({ children }: DashboardLayoutProp
               <span className="text-2xl">🏥</span>
               <span className="text-xl font-bold text-primary">HealthFlow</span>
             </Link>
+            <p className="text-xs text-muted-foreground mt-1">Patient Portal</p>
           </div>
           
           <nav className="flex-1 p-4 space-y-2">
@@ -40,6 +41,13 @@ export default function PatientDashboardLayout({ children }: DashboardLayoutProp
           </nav>
 
           <div className="p-4 border-t">
+            <div className="mb-3 px-4 py-2 rounded-lg bg-muted">
+              <p className="text-xs text-muted-foreground">Logged in as</p>
+              <p className="font-medium text-sm">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
+            </div>
             <button
               onClick={handleSignOut}
               className="flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors w-full"
