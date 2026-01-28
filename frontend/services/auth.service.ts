@@ -99,6 +99,13 @@ export const authService = {
   async verifyEmail(token: string): Promise<void> {
     await apiClient.post(API_ENDPOINTS.AUTH.VERIFY_EMAIL, { token });
   },
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(data: { firstName?: string; lastName?: string; phone?: string }): Promise<User> {
+    return apiClient.put<User>(API_ENDPOINTS.USERS.UPDATE_PROFILE, data);
+  },
 };
 
 export default authService;

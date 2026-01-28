@@ -41,6 +41,13 @@ export const doctorService = {
   },
 
   /**
+   * Get current doctor profile (for logged-in doctor)
+   */
+  async getMyProfile(): Promise<Doctor> {
+    return apiClient.get<Doctor>(API_ENDPOINTS.DOCTORS.ME);
+  },
+
+  /**
    * Get doctors by specialization
    */
   async getBySpecialization(specializationId: string): Promise<Doctor[]> {

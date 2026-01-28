@@ -27,9 +27,6 @@ type HubConnectionBuilder = {
   build: () => HubConnection;
 };
 
-// This will be the actual SignalR import when you install the package
-// import * as signalR from '@microsoft/signalr';
-
 // Connection instances
 let notificationsConnection: HubConnection | null = null;
 let appointmentsConnection: HubConnection | null = null;
@@ -44,7 +41,7 @@ export interface NotificationEventHandlers {
 }
 
 export interface AppointmentEventHandlers {
-  onStatusChanged?: (appointmentId: string, status: string) => void;
+  onStatusChanged?: (appointment: Appointment) => void;
   onNewRequest?: (appointment: Appointment) => void;
   onReminder?: (appointment: Appointment) => void;
   onCancelled?: (appointmentId: string) => void;
@@ -56,21 +53,16 @@ export interface AppointmentEventHandlers {
  */
 async function createConnection(hubUrl: string): Promise<HubConnection | null> {
   try {
-    // Uncomment when @microsoft/signalr is installed
-    // const signalR = await import('@microsoft/signalr');
-    // 
-    // const connection = new signalR.HubConnectionBuilder()
-    //   .withUrl(hubUrl, {
-    //     accessTokenFactory: () => getAccessToken(),
-    //   })
-    //   .withAutomaticReconnect()
-    //   .build();
-    // 
-    // return connection;
+    const signalR = await import('@microsoft/signalr');
     
-    console.log(`SignalR connection would be created for: ${hubUrl}`);
-    console.log('Install @microsoft/signalr package to enable real-time features');
-    return null;
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(hubUrl, {
+        accessTokenFactory: () => getAccessToken() ?? '',
+      })
+      .withAutomaticReconnect()
+      .build();
+    
+    return connection;
   } catch (error) {
     console.error('Failed to create SignalR connection:', error);
     return null;
@@ -121,12 +113,22 @@ export async function connectToNotifications(
  * Connect to Appointments Hub
  */
 export async function connectToAppointments(
-  handlers: AppointmentEventHandlers
+  handlers: AppointmentEventHandlers,
+  options?: { doctorId?: string; secretaryId?: string }
 ): Promise<void> {
   try {
+    // If already connected, disconnect first
+    if (appointmentsConnection && appointmentsConnection.state === 'Connected') {
+      console.log('Already connected to Appointments Hub, disconnecting first...');
+      await disconnectFromAppointments();
+    }
+
     appointmentsConnection = await createConnection(WS_HUBS.APPOINTMENTS);
     
-    if (!appointmentsConnection) return;
+    if (!appointmentsConnection) {
+      console.warn('Failed to create appointments connection');
+      return;
+    }
 
     // Register event handlers
     if (handlers.onStatusChanged) {
@@ -158,9 +160,32 @@ export async function connectToAppointments(
     }
 
     await appointmentsConnection.start();
-    console.log('Connected to Appointments Hub');
+    console.log('✅ Connected to Appointments Hub');
+
+    // Join specific groups if provided - ensure connection is ready
+    if (appointmentsConnection.state === 'Connected') {
+      if (options?.doctorId) {
+        try {
+          await appointmentsConnection.invoke('JoinDoctorRoom', options.doctorId);
+          console.log(`✅ Joined doctor room: ${options.doctorId}`);
+        } catch (error) {
+          console.error('❌ Failed to join doctor room:', error);
+        }
+      }
+
+      if (options?.secretaryId) {
+        try {
+          await appointmentsConnection.invoke('JoinGroup', `secretary_${options.secretaryId}`);
+          console.log(`✅ Joined secretary room: ${options.secretaryId}`);
+        } catch (error) {
+          console.error('❌ Failed to join secretary room:', error);
+        }
+      }
+    } else {
+      console.warn('⚠️ Connection not ready, skipping group join');
+    }
   } catch (error) {
-    console.error('Failed to connect to Appointments Hub:', error);
+    console.error('❌ Failed to connect to Appointments Hub:', error);
   }
 }
 

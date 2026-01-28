@@ -1,39 +1,117 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
+import { useAuthStore } from '@/store';
+import { appointmentService } from '@/services';
+import { Appointment, AppointmentStatus } from '@/types';
+import { ROUTES } from '@/lib/constants';
+
+interface DashboardStats {
+  upcomingAppointments: number;
+  completedVisits: number;
+  pendingAppointments: number;
+}
 
 export default function PatientDashboard() {
+  const user = useAuthStore((state) => state.user);
+  const [stats, setStats] = useState<DashboardStats>({
+    upcomingAppointments: 0,
+    completedVisits: 0,
+    pendingAppointments: 0,
+  });
+  const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadDashboardData();
+    }
+  }, [user?.id]);
+
+  const loadDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await appointmentService.getByPatient(user!.id);
+      const appointments = response.data || response as unknown as Appointment[];
+      console.log('All appointments:', appointments);
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Calculate stats
+      const upcoming = appointments.filter(a => {
+        const date = a.date || '';
+        return date >= today && 
+          (a.status === AppointmentStatus.Approved || a.status.toLowerCase() === AppointmentStatus.Pending.toLowerCase());
+      });
+      
+      const completed = appointments.filter(a => a.status.toLowerCase() === AppointmentStatus.Done.toLowerCase());
+      const pending = appointments.filter(a => a.status.toLowerCase() === AppointmentStatus.Pending.toLowerCase());
+      
+      setStats({
+        upcomingAppointments: upcoming.length,
+        completedVisits: completed.length,
+        pendingAppointments: pending.length,
+      });
+      
+      // Get next 3 upcoming appointments
+      setUpcomingAppointments(upcoming.slice(0, 3));
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold">Welcome back, John!</h2>
+        <h2 className="text-3xl font-bold">
+          Welcome back, {user?.firstName || 'Patient'}!
+        </h2>
         <p className="text-muted-foreground">Here&apos;s an overview of your health journey</p>
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <QuickActionCard
           title="Book Appointment"
           description="Schedule a new consultation"
           icon="📅"
-          href="/patient/doctors"
+          href={ROUTES.PATIENT.DOCTORS}
         />
         <QuickActionCard
           title="My Appointments"
           description="View upcoming visits"
           icon="📋"
-          href="/patient/appointments"
+          href={ROUTES.PATIENT.APPOINTMENTS}
         />
         <QuickActionCard
           title="Medical Records"
-          description="Access your health history"
-          icon="📁"
-          href="/patient/records"
+          description="View your health history"
+          icon="🏥"
+          href={ROUTES.PATIENT.MEDICAL_RECORDS}
         />
         <QuickActionCard
-          title="Messages"
-          description="Chat with your doctors"
-          icon="💬"
-          href="/patient/messages"
+          title="My Profile"
+          description="View and edit your profile"
+          icon="👤"
+          href={ROUTES.PATIENT.PROFILE}
+        />
+        <QuickActionCard
+          title="Find Doctors"
+          description="Browse available doctors"
+          icon="👨‍⚕️"
+          href={ROUTES.PATIENT.DOCTORS}
         />
       </div>
 
@@ -47,8 +125,14 @@ export default function PatientDashboard() {
             <span className="text-2xl">📅</span>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">2</div>
-            <p className="text-xs text-muted-foreground">Next: Tomorrow at 10:00 AM</p>
+            <div className="text-3xl font-bold">{stats.upcomingAppointments}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.upcomingAppointments === 0 
+                ? 'No upcoming appointments' 
+                : stats.upcomingAppointments === 1 
+                  ? 'Scheduled appointment' 
+                  : 'Scheduled appointments'}
+            </p>
           </CardContent>
         </Card>
 
@@ -60,47 +144,49 @@ export default function PatientDashboard() {
             <span className="text-2xl">✅</span>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">This year</p>
+            <div className="text-3xl font-bold">{stats.completedVisits}</div>
+            <p className="text-xs text-muted-foreground">Total completed</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Prescriptions
+              Pending Approval
             </CardTitle>
-            <span className="text-2xl">💊</span>
+            <span className="text-2xl">⏳</span>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">Active prescriptions</p>
+            <div className="text-3xl font-bold">{stats.pendingAppointments}</div>
+            <p className="text-xs text-muted-foreground">Awaiting doctor confirmation</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Upcoming Appointments */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex justify-between items-center">
           <CardTitle>Upcoming Appointments</CardTitle>
+          <Link href={ROUTES.PATIENT.APPOINTMENTS}>
+            <Button variant="ghost" size="sm">View All →</Button>
+          </Link>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <AppointmentItem
-              doctor="Dr. Sarah Johnson"
-              specialization="Cardiologist"
-              date="Tomorrow"
-              time="10:00 AM"
-              type="Physical"
-            />
-            <AppointmentItem
-              doctor="Dr. Michael Chen"
-              specialization="General Physician"
-              date="Jan 30, 2026"
-              time="2:30 PM"
-              type="Online"
-            />
-          </div>
+          {upcomingAppointments.length === 0 ? (
+            <div className="text-center py-8">
+              <span className="text-4xl block mb-4">📅</span>
+              <p className="text-muted-foreground mb-4">No upcoming appointments</p>
+              <Link href={ROUTES.PATIENT.DOCTORS}>
+                <Button>Book an Appointment</Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {upcomingAppointments.map((appointment) => (
+                <AppointmentItem key={appointment.id} appointment={appointment} />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -120,9 +206,9 @@ function QuickActionCard({
 }) {
   return (
     <Link href={href}>
-      <Card className="cursor-pointer hover:border-primary transition-colors h-full">
+      <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
         <CardContent className="pt-6">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4">
             <span className="text-3xl">{icon}</span>
             <div>
               <h3 className="font-semibold">{title}</h3>
@@ -135,43 +221,94 @@ function QuickActionCard({
   );
 }
 
-function AppointmentItem({
-  doctor,
-  specialization,
-  date,
-  time,
-  type,
-}: {
-  doctor: string;
-  specialization: string;
-  date: string;
-  time: string;
-  type: 'Physical' | 'Online';
-}) {
+function AppointmentItem({ appointment }: { appointment: Appointment }) {
+  const doctor = appointment.doctor;
+  const doctorName = doctor?.fullName || 
+    (doctor?.firstName && doctor?.lastName ? `${doctor.firstName} ${doctor.lastName}` : null) ||
+    (doctor?.user ? `${doctor.user.firstName} ${doctor.user.lastName}` : 'Doctor');
+  const specialization = doctor?.specialization?.name || 'General';
+  const clinicName = appointment.clinic?.name || 'Not specified';
+  const aptDate = appointment.date || '';
+  const isOnline = appointment.type === 'ONLINE';
+
+  const statusColors: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    approved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    declined: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+  };
+
   return (
-    <div className="flex items-center justify-between p-4 border rounded-lg">
-      <div className="flex items-center space-x-4">
-        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-          <span className="text-xl">👨‍⚕️</span>
+    <div className="flex flex-col gap-3 p-4 border rounded-lg hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-4 flex-1">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <span className="text-xl">👨‍⚕️</span>
+          </div>
+          <div className="flex-1">
+            <h4 className="font-medium">Dr. {doctorName}</h4>
+            <p className="text-sm text-muted-foreground">{specialization}</p>
+            {!isOnline && (
+              <p className="text-xs text-muted-foreground mt-1">
+                📍 {clinicName}
+              </p>
+            )}
+          </div>
         </div>
-        <div>
-          <p className="font-medium">{doctor}</p>
-          <p className="text-sm text-muted-foreground">{specialization}</p>
+        <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${statusColors[appointment.status.toLowerCase()] || 'bg-blue-100'}`}>
+          {appointment.status}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <span>📅</span>
+          <span>{formatDate(aptDate)}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span>🕐</span>
+          <span>{appointment.startTime} - {appointment.endTime}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span>{isOnline ? '💻' : '🏥'}</span>
+          <span>{isOnline ? 'Online' : 'In-person'}</span>
         </div>
       </div>
-      <div className="text-right">
-        <p className="font-medium">{date}</p>
-        <p className="text-sm text-muted-foreground">{time}</p>
-      </div>
-      <div
-        className={`px-3 py-1 rounded-full text-xs font-medium ${
-          type === 'Online'
-            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-            : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-        }`}
-      >
-        {type}
-      </div>
+
+      {appointment.reason && (
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium">Reason:</span> {appointment.reason}
+        </p>
+      )}
+
+      {isOnline && appointment.meetingLink && appointment.status.toLowerCase() === AppointmentStatus.Approved.toLowerCase() && (
+        <div className="pt-2 border-t">
+          <a 
+            href={appointment.meetingLink} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline flex items-center gap-1"
+          >
+            🔗 Join Meeting
+          </a>
+        </div>
+      )}
     </div>
   );
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return 'N/A';
+  const date = new Date(dateStr);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+  
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 }

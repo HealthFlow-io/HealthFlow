@@ -2,7 +2,7 @@
 
 /**
  * Auth Provider
- * Handles authentication state initialization and protection
+ * Handles authentication state initialization
  */
 
 import { useEffect, type ReactNode } from 'react';
@@ -13,16 +13,17 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const fetchCurrentUser = useAuthStore((state) => state.fetchCurrentUser);
+  const initialize = useAuthStore((state) => state.initialize);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
   const isLoading = useAuthStore((state) => state.isLoading);
 
   useEffect(() => {
-    // Fetch current user on mount
-    fetchCurrentUser();
-  }, [fetchCurrentUser]);
+    // Initialize auth on mount - fetches user from API if token exists
+    initialize();
+  }, [initialize]);
 
-  // You can add a loading spinner here while checking auth
-  if (isLoading) {
+  // Show loading spinner while initializing
+  if (!isInitialized || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

@@ -8,11 +8,11 @@
 // ============================================
 
 export enum UserRole {
-  Admin = 'Admin',
-  Doctor = 'Doctor',
-  Secretary = 'Secretary',
-  Patient = 'Patient',
-  ClinicManager = 'ClinicManager',
+  Admin = 'admin',
+  Doctor = 'doctor',
+  Secretary = 'secretary',
+  Patient = 'patient',
+  ClinicManager = 'clinicManager',
 }
 
 export enum ConsultationType {
@@ -118,19 +118,29 @@ export interface AuthState {
 export interface Doctor {
   id: string;
   userId: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  fullName?: string;
   specializationId: string;
   specialization?: Specialization;
-  subSpecializations: string[];
+  specializationName?: string;
+  subSpecializations?: string[];
   bio?: string;
-  experienceYears: number;
-  languages: string[];
-  consultationTypes: ConsultationType[];
-  consultationDuration: number; // in minutes
-  consultationPrice: number;
+  licenseNumber?: string;
+  yearsOfExperience?: number;
+  experienceYears?: number;
+  education?: string;
+  languages?: string[];
+  consultationTypes?: ConsultationType[];
+  consultationDuration?: number; // in minutes
+  consultationPrice?: number;
+  consultationFee?: number;
   clinicId?: string;
   clinic?: Clinic;
-  rating: number;
+  rating?: number;
+  reviewCount?: number;
   user?: User;
 }
 
@@ -189,6 +199,12 @@ export interface SpecializationCreateDto {
   description?: string;
 }
 
+export interface SpecializationUpdateDto {
+  name?: string;
+  category?: string;
+  description?: string;
+}
+
 // ============================================
 // DOCTOR AVAILABILITY TYPES
 // ============================================
@@ -202,7 +218,6 @@ export interface DoctorAvailability {
 }
 
 export interface DoctorAvailabilityCreateDto {
-  doctorId: string;
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
@@ -237,13 +252,15 @@ export interface Appointment {
   approvedBy?: string;
 }
 
+// Matches backend AppointmentDTOs: AppointmentCreateDto
+// Note: patientId is NOT in the DTO - it's obtained from auth context
 export interface AppointmentCreateDto {
   doctorId: string;
   clinicId?: string;
   date: string;
   startTime: string;
   endTime: string;
-  type: AppointmentType;
+  type: AppointmentType;  // Must use AppointmentType enum, not string
   reason?: string;
 }
 
@@ -295,9 +312,15 @@ export interface ContactInfo {
 export interface Clinic {
   id: string;
   name: string;
-  address: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  description?: string;
+  openingTime?: string;
+  closingTime?: string;
   geoLocation?: GeoLocation;
-  workingHours: WorkingHours[];
+  workingHours?: WorkingHours[];
   contactInfo?: ContactInfo;
 }
 
@@ -313,13 +336,46 @@ export interface ClinicCreateDto {
 // MEDICAL RECORD TYPES
 // ============================================
 
+export interface VitalSigns {
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  heartRate?: number;
+  temperature?: number;
+  weight?: number;
+  height?: number;
+}
+
+export interface MedicalRecordAttachment {
+  id: string;
+  fileUploadId: string;
+  fileName: string;
+  fileUrl: string;
+  description?: string;
+  attachmentType: string; // Scan, LabResult, Prescription, Xray, Other
+  createdAt: string;
+}
+
 export interface MedicalRecord {
   id: string;
   patientId: string;
   patient?: User;
   doctorId: string;
-  doctor?: Doctor;
+  doctor?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    specializationName: string;
+  };
+  appointmentId?: string;
+  diagnosis?: string;
+  symptoms?: string;
+  treatment?: string;
+  prescription?: string;
   notes: string;
+  vitalSigns?: VitalSigns;
+  followUpDate?: string;
+  followUpNotes?: string;
+  attachments: MedicalRecordAttachment[];
   prescriptionUrl?: string;
   createdAt: string;
   updatedAt?: string;
@@ -327,8 +383,44 @@ export interface MedicalRecord {
 
 export interface MedicalRecordCreateDto {
   patientId: string;
+  appointmentId?: string;
+  diagnosis?: string;
+  symptoms?: string;
+  treatment?: string;
+  prescription?: string;
   notes: string;
+  vitalSigns?: VitalSigns;
+  followUpDate?: string;
+  followUpNotes?: string;
   prescriptionUrl?: string;
+}
+
+export interface MedicalRecordUpdateDto {
+  diagnosis?: string;
+  symptoms?: string;
+  treatment?: string;
+  prescription?: string;
+  notes?: string;
+  vitalSigns?: VitalSigns;
+  followUpDate?: string;
+  followUpNotes?: string;
+  prescriptionUrl?: string;
+}
+
+export interface AddAttachmentDto {
+  fileUploadId: string;
+  description?: string;
+  attachmentType: string;
+}
+
+// ============================================
+// FILE UPLOAD TYPES
+// ============================================
+
+export interface FileUploadResponse {
+  id: string;
+  fileName: string;
+  url: string;
 }
 
 // ============================================

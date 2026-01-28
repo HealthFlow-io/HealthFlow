@@ -1,124 +1,158 @@
 /**
  * Authentication Store
- * Zustand store for managing authentication state
+ * Token-based auth: only token is persisted, user info is fetched from API
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { User, AuthState, LoginRequest, RegisterRequest } from '@/types';
+import { User, LoginRequest, RegisterRequest } from '@/types';
 import { authService } from '@/services';
-import { clearTokens, getAccessToken } from '@/lib/api/client';
+import { getAccessToken, clearTokens } from '@/lib/api/client';
 
-interface AuthStore extends AuthState {
+interface AuthStore {
+  // State
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  isInitialized: boolean;  // True after initial auth check completes
+  
   // Actions
+  initialize: () => Promise<void>;
   login: (credentials: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
-  fetchCurrentUser: () => Promise<void>;
   setUser: (user: User | null) => void;
-  setLoading: (loading: boolean) => void;
   reset: () => void;
 }
 
-const initialState: AuthState = {
+export const useAuthStore = create<AuthStore>()((set, get) => ({
+  // Initial state - user not loaded yet
   user: null,
-  accessToken: null,
-  refreshToken: null,
   isAuthenticated: false,
   isLoading: false,
-};
+  isInitialized: false,
 
-export const useAuthStore = create<AuthStore>()(
-  persist(
-    (set, get) => ({
-      ...initialState,
-
-      login: async (credentials: LoginRequest) => {
-        set({ isLoading: true });
-        try {
-          const response = await authService.login(credentials);
-          set({
-            user: response.user,
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({ isLoading: false });
-          throw error;
-        }
-      },
-
-      register: async (data: RegisterRequest) => {
-        set({ isLoading: true });
-        try {
-          const response = await authService.register(data);
-          set({
-            user: response.user,
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({ isLoading: false });
-          throw error;
-        }
-      },
-
-      logout: async () => {
-        set({ isLoading: true });
-        try {
-          await authService.logout();
-        } finally {
-          clearTokens();
-          set(initialState);
-        }
-      },
-
-      fetchCurrentUser: async () => {
-        const token = getAccessToken();
-        if (!token) {
-          set({ isAuthenticated: false, user: null });
-          return;
-        }
-
-        set({ isLoading: true });
-        try {
-          const user = await authService.getCurrentUser();
-          set({
-            user,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch {
-          clearTokens();
-          set(initialState);
-        }
-      },
-
-      setUser: (user: User | null) => {
-        set({ user, isAuthenticated: !!user });
-      },
-
-      setLoading: (isLoading: boolean) => {
-        set({ isLoading });
-      },
-
-      reset: () => {
-        clearTokens();
-        set(initialState);
-      },
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-      }),
+  /**
+   * Initialize auth state by checking token and fetching user
+   * Called once on app load
+   */
+  initialize: async () => {
+    console.log('[AuthStore] initialize called');
+    // Don't re-initialize if already done
+    if (get().isInitialized) {
+      console.log('[AuthStore] Already initialized, skipping');
+      return;
     }
-  )
-);
+    const token = getAccessToken();
+    console.log('[AuthStore] Initializing, token exists:', !!token, 'token:', token);
+    if (!token) {
+      // No token - user is not authenticated
+      set({ isInitialized: true, isAuthenticated: false, user: null });
+      console.log('[AuthStore] No token, set user null, isAuthenticated false');
+      return;
+    }
+    // Token exists - verify it by fetching user
+    set({ isLoading: true });
+    try {
+      const user = await authService.getCurrentUser();
+      console.log('[AuthStore] User fetched:', user);
+      set({
+        user,
+        isAuthenticated: true,
+        isLoading: false,
+        isInitialized: true,
+      });
+      console.log('[AuthStore] Set user, isAuthenticated true');
+    } catch (error) {
+      // Token is invalid or expired
+      console.log('[AuthStore] Token invalid, clearing', error);
+      clearTokens();
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        isInitialized: true,
+      });
+      console.log('[AuthStore] Set user null, isAuthenticated false');
+    }
+  },
+
+  /**
+   * Login user
+   */
+  login: async (credentials: LoginRequest) => {
+    set({ isLoading: true });
+    try {
+      const response = await authService.login(credentials);
+      console.log('[AuthStore] Login successful:', response.user.email);
+      set({
+        user: response.user,
+        isAuthenticated: true,
+        isLoading: false,
+        isInitialized: true,
+      });
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  /**
+   * Register new user
+   */
+  register: async (data: RegisterRequest) => {
+    set({ isLoading: true });
+    try {
+      const response = await authService.register(data);
+      console.log('[AuthStore] Registration successful:', response.user.email);
+      set({
+        user: response.user,
+        isAuthenticated: true,
+        isLoading: false,
+        isInitialized: true,
+      });
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  /**
+   * Logout user
+   */
+  logout: async () => {
+    set({ isLoading: true });
+    try {
+      await authService.logout();
+    } finally {
+      clearTokens();
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        isInitialized: true,
+      });
+    }
+  },
+
+  /**
+   * Set user manually
+   */
+  setUser: (user: User | null) => {
+    set({ user, isAuthenticated: !!user });
+  },
+
+  /**
+   * Reset store to initial state
+   */
+  reset: () => {
+    clearTokens();
+    set({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      isInitialized: true,
+    });
+  },
+}));
 
 export default useAuthStore;

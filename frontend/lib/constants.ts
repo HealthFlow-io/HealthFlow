@@ -85,6 +85,7 @@ export const ROUTES = {
     DASHBOARD: '/patient/dashboard',
     APPOINTMENTS: '/patient/appointments',
     DOCTORS: '/patient/doctors',
+    MEDICAL_RECORDS: '/patient/medical-records',
     PROFILE: '/patient/profile',
   },
   
@@ -102,6 +103,7 @@ export const ROUTES = {
     DASHBOARD: '/secretary/dashboard',
     APPOINTMENTS: '/secretary/appointments',
     DOCTORS: '/secretary/doctors',
+    PATIENTS: '/secretary/patients',
   },
   
   // Admin Routes
@@ -109,6 +111,7 @@ export const ROUTES = {
     DASHBOARD: '/admin/dashboard',
     USERS: '/admin/users',
     DOCTORS: '/admin/doctors',
+    SECRETARIES: '/admin/secretaries',
     CLINICS: '/admin/clinics',
     SPECIALIZATIONS: '/admin/specializations',
     SETTINGS: '/admin/settings',

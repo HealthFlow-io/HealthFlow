@@ -15,31 +15,17 @@ export function useAuth() {
     user,
     isAuthenticated,
     isLoading,
+    isInitialized,
     login: storeLogin,
     register: storeRegister,
     logout: storeLogout,
-    fetchCurrentUser,
+    initialize,
   } = useAuthStore();
 
   const login = async (email: string, password: string) => {
+    // This will throw if login fails, allowing the component to catch the error
     await storeLogin({ email, password });
-    // Redirect based on user role after login
-    const user = useAuthStore.getState().user;
-    if (user) {
-      switch (user.role) {
-        case 'Doctor':
-          router.push(ROUTES.DOCTOR.DASHBOARD);
-          break;
-        case 'Secretary':
-          router.push(ROUTES.SECRETARY.DASHBOARD);
-          break;
-        case 'Admin':
-          router.push(ROUTES.ADMIN.DASHBOARD);
-          break;
-        default:
-          router.push(ROUTES.PATIENT.DASHBOARD);
-      }
-    }
+    // Redirect is now handled by the component via useEffect
   };
 
   const register = async (data: {
@@ -49,8 +35,9 @@ export function useAuth() {
     password: string;
     phone?: string;
   }) => {
+    // This will throw if register fails, allowing the component to catch the error
     await storeRegister(data);
-    router.push(ROUTES.PATIENT.DASHBOARD);
+    // Redirect is now handled by the component via useEffect
   };
 
   const logout = async () => {
@@ -58,14 +45,32 @@ export function useAuth() {
     router.push(ROUTES.LOGIN);
   };
 
+  /**
+   * Get the dashboard route based on user role
+   */
+  const getDashboardRoute = (role?: string) => {
+    switch (role) {
+      case 'Doctor':
+        return ROUTES.DOCTOR.DASHBOARD;
+      case 'Secretary':
+        return ROUTES.SECRETARY.DASHBOARD;
+      case 'Admin':
+        return ROUTES.ADMIN.DASHBOARD;
+      default:
+        return ROUTES.PATIENT.DASHBOARD;
+    }
+  };
+
   return {
     user,
     isAuthenticated,
     isLoading,
+    isInitialized,
     login,
     register,
     logout,
-    fetchCurrentUser,
+    initialize,
+    getDashboardRoute,
   };
 }
 
