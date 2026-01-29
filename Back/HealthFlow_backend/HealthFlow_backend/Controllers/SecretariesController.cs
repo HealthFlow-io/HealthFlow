@@ -148,6 +148,132 @@ public class SecretariesController : ControllerBase
         return Ok(patients);
     }
 
+    // Get appointment history for a specific patient (secretary only for assigned doctors' patients)
+    [HttpGet("me/patients/{patientId}/appointments")]
+    [Authorize(Roles = "Secretary")]
+    public async Task<ActionResult> GetPatientAppointmentHistory(Guid patientId)
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+            var secretary = await _unitOfWork.Secretaries.GetByUserIdAsync(userId);
+            
+            if (secretary == null) 
+                return NotFound(new { message = "Secretary profile not found" });
+
+            // Get assigned doctors
+            var assignedDoctors = await _unitOfWork.Secretaries.GetAssignedDoctorsAsync(secretary.Id);
+            var doctorIds = assignedDoctors.Select(d => d.Id).ToList();
+
+            if (!doctorIds.Any())
+                return Ok(new List<object>());
+
+            // Get all appointments for this patient with assigned doctors
+            var appointments = await _unitOfWork.Context.Appointments
+                .Include(a => a.Doctor)
+                    .ThenInclude(d => d.Specialization)
+                .Include(a => a.Patient)
+                .Where(a => a.PatientId == patientId && doctorIds.Contains(a.DoctorId))
+                .OrderByDescending(a => a.Date)
+                .ToListAsync();
+
+            var appointmentDtos = appointments.Select(a => new
+            {
+                id = a.Id,
+                date = a.Date.ToString("yyyy-MM-dd"),
+                startTime = a.StartTime.ToString(@"hh\:mm"),
+                endTime = a.EndTime.ToString(@"hh\:mm"),
+                status = a.Status.ToString(),
+                type = a.Type.ToString(),
+                reason = a.Reason,
+                doctor = new
+                {
+                    id = a.Doctor?.Id ?? Guid.Empty,
+                    fullName = a.Doctor?.FullName ?? "",
+                    specialization = a.Doctor?.Specialization?.Name ?? ""
+                },
+                patient = new
+                {
+                    id = a.Patient?.Id ?? Guid.Empty,
+                    firstName = a.Patient?.FirstName ?? "",
+                    lastName = a.Patient?.LastName ?? "",
+                    email = a.Patient?.Email ?? "",
+                    phone = a.Patient?.Phone ?? ""
+                },
+                createdAt = a.CreatedAt,
+                updatedAt = a.UpdatedAt
+            }).ToList();
+
+            return Ok(appointmentDtos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error retrieving appointment history", error = ex.Message });
+        }
+    }
+
+    // Get appointment history for a specific doctor (secretary only for assigned doctors)
+    [HttpGet("me/doctors/{doctorId}/appointments")]
+    [Authorize(Roles = "Secretary")]
+    public async Task<ActionResult> GetDoctorAppointmentHistory(Guid doctorId)
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+            var secretary = await _unitOfWork.Secretaries.GetByUserIdAsync(userId);
+            
+            if (secretary == null) 
+                return NotFound(new { message = "Secretary profile not found" });
+
+            // Check if doctor is assigned to this secretary
+            var isAssigned = await _unitOfWork.Secretaries.IsDoctorAssignedAsync(secretary.Id, doctorId);
+            if (!isAssigned)
+                return Forbid();
+
+            // Get all appointments for this doctor
+            var appointments = await _unitOfWork.Context.Appointments
+                .Include(a => a.Doctor)
+                    .ThenInclude(d => d.Specialization)
+                .Include(a => a.Patient)
+                .Where(a => a.DoctorId == doctorId)
+                .OrderByDescending(a => a.Date)
+                .ToListAsync();
+
+            var appointmentDtos = appointments.Select(a => new
+            {
+                id = a.Id,
+                date = a.Date.ToString("yyyy-MM-dd"),
+                startTime = a.StartTime.ToString(@"hh\:mm"),
+                endTime = a.EndTime.ToString(@"hh\:mm"),
+                status = a.Status.ToString(),
+                type = a.Type.ToString(),
+                reason = a.Reason,
+                doctor = new
+                {
+                    id = a.Doctor?.Id ?? Guid.Empty,
+                    fullName = a.Doctor?.FullName ?? "",
+                    specialization = a.Doctor?.Specialization?.Name ?? ""
+                },
+                patient = new
+                {
+                    id = a.Patient?.Id ?? Guid.Empty,
+                    firstName = a.Patient?.FirstName ?? "",
+                    lastName = a.Patient?.LastName ?? "",
+                    email = a.Patient?.Email ?? "",
+                    phone = a.Patient?.Phone ?? ""
+                },
+                createdAt = a.CreatedAt,
+                updatedAt = a.UpdatedAt
+            }).ToList();
+
+            return Ok(appointmentDtos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error retrieving appointment history", error = ex.Message });
+        }
+    }
+
     [HttpGet("{id}")]
     [Authorize(Roles = "Admin")]  // Admin only
     public async Task<ActionResult<SecretaryProfileDto>> GetById(Guid id)

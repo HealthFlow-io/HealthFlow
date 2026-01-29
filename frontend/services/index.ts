@@ -8,7 +8,7 @@ export { adminService } from './admin.service';
 export { medicalRecordService } from './medical-record.service';
 export { fileService } from './file.service';
 export { secretaryService } from './secretary.service';
-export type { SecretaryPatient, SecretaryProfile } from './secretary.service';
+export type { SecretaryPatient, SecretaryProfile, AppointmentHistory } from './secretary.service';
 export type { 
   CreateUserRequest,
   UpdateUserRequest,
