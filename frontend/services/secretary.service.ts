@@ -38,6 +38,30 @@ export interface SecretaryProfile {
   }>;
 }
 
+export interface AppointmentHistory {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  type: string;
+  reason?: string;
+  doctor: {
+    id: string;
+    fullName: string;
+    specialization?: string;
+  };
+  patient: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const secretaryService = {
   /**
    * Get current secretary profile
@@ -65,6 +89,20 @@ export const secretaryService = {
    */
   async getAssignedDoctors(secretaryId: string): Promise<SecretaryProfile['doctors']> {
     return apiClient.get(API_ENDPOINTS.SECRETARY.ASSIGNED_DOCTORS(secretaryId));
+  },
+
+  /**
+   * Get appointment history for a specific patient
+   */
+  async getPatientAppointments(patientId: string): Promise<AppointmentHistory[]> {
+    return apiClient.get<AppointmentHistory[]>(API_ENDPOINTS.SECRETARY.PATIENT_APPOINTMENTS(patientId));
+  },
+
+  /**
+   * Get appointment history for a specific doctor
+   */
+  async getDoctorAppointments(doctorId: string): Promise<AppointmentHistory[]> {
+    return apiClient.get<AppointmentHistory[]>(API_ENDPOINTS.SECRETARY.DOCTOR_APPOINTMENTS(doctorId));
   },
 };
 

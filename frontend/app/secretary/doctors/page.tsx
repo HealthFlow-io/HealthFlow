@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
-import { adminService } from '@/services';
+import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@/components/ui';
+import { Badge } from '@/components/ui/badge';
+import { adminService, secretaryService, AppointmentHistory } from '@/services';
 import { Doctor } from '@/types';
 
 export default function SecretaryDoctorsPage() {
@@ -11,6 +12,9 @@ export default function SecretaryDoctorsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [appointments, setAppointments] = useState<AppointmentHistory[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
 
   useEffect(() => {
     loadDoctors();
@@ -47,10 +51,90 @@ export default function SecretaryDoctorsPage() {
     }
   };
 
+  const loadDoctorAppointments = async (doctor: Doctor) => {
+    setSelectedDoctor(doctor);
+    setLoadingAppointments(true);
+    setError('');
+    try {
+      console.log('Loading appointments for doctor:', doctor.id);
+      const history = await secretaryService.getDoctorAppointments(doctor.id);
+      console.log('Loaded appointments:', history);
+      setAppointments(history);
+      if (history.length === 0) {
+        console.warn('No appointments found for doctor');
+      }
+    } catch (err: unknown) {
+      console.error('Failed to load appointments:', err);
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load appointment history';
+      setError(errorMessage);
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
+  const closeAppointmentView = () => {
+    setSelectedDoctor(null);
+    setAppointments([]);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Show appointment history view
+  if (selectedDoctor) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold">
+              Appointment History - Dr. {selectedDoctor.fullName || `${selectedDoctor.firstName} ${selectedDoctor.lastName}`}
+            </h2>
+            <p className="text-muted-foreground">
+              {selectedDoctor.specialization?.name || 'General Medicine'}
+            </p>
+          </div>
+          <Button onClick={closeAppointmentView} variant="outline">
+            ← Back to Doctors
+          </Button>
+        </div>
+
+        {loadingAppointments ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        ) : error ? (
+          <Card className="border-destructive">
+            <CardContent className="py-12 text-center">
+              <span className="text-4xl mb-4 block">⚠️</span>
+              <p className="text-lg font-medium text-destructive">{error}</p>
+              <Button onClick={() => loadDoctorAppointments(selectedDoctor)} className="mt-4" variant="outline">
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        ) : appointments.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <span className="text-4xl mb-4 block">📅</span>
+              <p className="text-lg font-medium">No appointments found</p>
+              <p className="text-muted-foreground">
+                This doctor has no appointment history yet
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {appointments.map((appointment) => (
+              <AppointmentCard key={appointment.id} appointment={appointment} />
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -114,7 +198,11 @@ export default function SecretaryDoctorsPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredDoctors.map((doctor) => (
-                  <DoctorCard key={doctor.id} doctor={doctor} />
+                  <DoctorCard 
+                    key={doctor.id} 
+                    doctor={doctor} 
+                    onViewHistory={() => loadDoctorAppointments(doctor)}
+                  />
                 ))}
               </div>
             )}
@@ -127,9 +215,10 @@ export default function SecretaryDoctorsPage() {
 
 interface DoctorCardProps {
   doctor: Doctor;
+  onViewHistory: () => void;
 }
 
-function DoctorCard({ doctor }: DoctorCardProps) {
+function DoctorCard({ doctor, onViewHistory }: DoctorCardProps) {
   const doctorName = doctor.fullName || `${doctor.firstName} ${doctor.lastName}`;
   
   return (
@@ -183,6 +272,89 @@ function DoctorCard({ doctor }: DoctorCardProps) {
             <div className="flex items-center gap-2">
               <span>⭐</span>
               <span>{doctor.rating.toFixed(1)} rating</span>
+            </div>
+          )}
+        </div>
+        <Button 
+          onClick={onViewHistory} 
+          className="w-full mt-4"
+          variant="outline"
+        >
+          📅 View Appointment History
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface AppointmentCardProps {
+  appointment: AppointmentHistory;
+}
+
+function AppointmentCard({ appointment }: AppointmentCardProps) {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'declined':
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'done':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-lg">
+              {appointment.patient.firstName} {appointment.patient.lastName}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">{appointment.patient.email}</p>
+          </div>
+          <Badge className={getStatusColor(appointment.status)}>
+            {appointment.status}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center gap-2">
+            <span>📅</span>
+            <span>{formatDate(appointment.date)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span>🕐</span>
+            <span>{appointment.startTime} - {appointment.endTime}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span>💼</span>
+            <Badge variant="outline">{appointment.type}</Badge>
+          </div>
+          {appointment.patient.phone && (
+            <div className="flex items-center gap-2">
+              <span>📱</span>
+              <span>{appointment.patient.phone}</span>
+            </div>
+          )}
+          {appointment.reason && (
+            <div className="flex items-start gap-2 mt-3 pt-3 border-t">
+              <span>📝</span>
+              <span className="flex-1">{appointment.reason}</span>
             </div>
           )}
         </div>

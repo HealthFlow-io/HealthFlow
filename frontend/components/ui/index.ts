@@ -4,3 +4,5 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
 export { Avatar } from './avatar';
 export { Badge, StatusBadge } from './badge';
 export { Calendar } from './calendar';
+export { Select } from './select';
+export type { SelectOption } from './select';

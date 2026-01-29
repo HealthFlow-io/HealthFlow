@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Select, Badge } from '@/components/ui';
+import type { SelectOption } from '@/components/ui';
 import { useAuthStore } from '@/store';
 import { appointmentService, adminService } from '@/services';
 import { Appointment, AppointmentStatus, Doctor } from '@/types';
@@ -21,10 +22,15 @@ export default function SecretaryDashboard() {
     approvedToday: 0,
     totalDoctors: 0,
   });
+  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
   const [assignedDoctors, setAssignedDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Filter states
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('all');
+  const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<string>('pending');
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -71,6 +77,9 @@ export default function SecretaryDashboard() {
         statusLower: String(a.status).toLowerCase()
       })));
 
+      // Store all appointments for filtering
+      setAllAppointments(allAppointments);
+
       // Filter pending appointments - handle both string and enum values
       const pending = allAppointments.filter(a => {
         const status = String(a.status).toLowerCase();
@@ -105,6 +114,29 @@ export default function SecretaryDashboard() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // Filter appointments based on selected doctor and status
+  useEffect(() => {
+    if (!allAppointments || allAppointments.length === 0) return;
+
+    let filtered = [...allAppointments];
+
+    // Filter by doctor
+    if (selectedDoctorId !== 'all') {
+      filtered = filtered.filter(apt => apt.doctorId === selectedDoctorId);
+    }
+
+    // Filter by status
+    if (appointmentStatusFilter !== 'all') {
+      filtered = filtered.filter(apt => {
+        const status = String(apt.status).toLowerCase();
+        return status === appointmentStatusFilter.toLowerCase() || 
+               apt.status === AppointmentStatus[appointmentStatusFilter as keyof typeof AppointmentStatus];
+      });
+    }
+
+    setPendingAppointments(filtered);
+  }, [allAppointments, selectedDoctorId, appointmentStatusFilter]);
 
   useEffect(() => {
     if (!assignedDoctors || assignedDoctors.length === 0 || isLoading) return;
@@ -255,18 +287,56 @@ export default function SecretaryDashboard() {
       {/* Pending Appointments */}
       <Card>
         <CardHeader>
-          <CardTitle>Pending Appointments</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Appointments</CardTitle>
+            <div className="flex gap-3">
+              {/* Doctor Filter */}
+              <div className="w-48">
+                <Select
+                  value={selectedDoctorId}
+                  onChange={(e) => setSelectedDoctorId(e.target.value)}
+                  options={[
+                    { value: 'all', label: 'All Doctors' },
+                    ...assignedDoctors.map(doc => ({
+                      value: doc.id,
+                      label: `Dr. ${doc.fullName || `${doc.firstName} ${doc.lastName}`}`
+                    }))
+                  ]}
+                  className="text-sm"
+                />
+              </div>
+              {/* Status Filter */}
+              <div className="w-40">
+                <Select
+                  value={appointmentStatusFilter}
+                  onChange={(e) => setAppointmentStatusFilter(e.target.value)}
+                  options={[
+                    { value: 'all', label: 'All Status' },
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'approved', label: 'Approved' },
+                    { value: 'declined', label: 'Declined' },
+                    { value: 'cancelled', label: 'Cancelled' },
+                    { value: 'done', label: 'Done' }
+                  ]}
+                  className="text-sm"
+                />
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {pendingAppointments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <span className="text-4xl block mb-4">✅</span>
-              <p>No pending appointments</p>
-              <p className="text-sm">All appointments have been processed</p>
+              <p>No appointments found</p>
+              <p className="text-sm">
+                {appointmentStatusFilter === 'pending' 
+                  ? 'All appointments have been processed' 
+                  : 'No appointments match the selected filters'}
+              </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {pendingAppointments.map((appointment) => (
+            <div className="space-y-4">{pendingAppointments.map((appointment) => (
                 <AppointmentCard
                   key={appointment.id}
                   appointment={appointment}
@@ -297,6 +367,25 @@ function AppointmentCard({
     ? `${appointment.patient.firstName} ${appointment.patient.lastName}`
     : 'Patient';
 
+  const isPending = String(appointment.status).toLowerCase() === 'pending' || 
+                   appointment.status === AppointmentStatus.Pending;
+
+  const getStatusBadge = (status: string | AppointmentStatus) => {
+    const statusStr = String(status).toLowerCase();
+    const variants: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
+      pending: 'secondary',
+      approved: 'default',
+      declined: 'destructive',
+      cancelled: 'outline',
+      done: 'outline'
+    };
+    return (
+      <Badge variant={variants[statusStr] || 'default'}>
+        {statusStr.toUpperCase()}
+      </Badge>
+    );
+  };
+
   return (
     <div className="flex items-center justify-between p-4 border rounded-lg">
       <div className="flex-1">
@@ -304,8 +393,11 @@ function AppointmentCard({
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
             <span className="text-lg">👤</span>
           </div>
-          <div>
-            <h4 className="font-medium">{patientName}</h4>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium">{patientName}</h4>
+              {getStatusBadge(appointment.status)}
+            </div>
             <p className="text-sm text-muted-foreground">with {doctorName}</p>
           </div>
         </div>
@@ -323,19 +415,21 @@ function AppointmentCard({
           )}
         </div>
       </div>
-      <div className="flex gap-2 ml-4">
-        <Button size="sm" onClick={() => onApprove(appointment.id)}>
-          ✓ Approve
-        </Button>
-        <Button 
-          size="sm" 
-          variant="outline" 
-          onClick={() => onDecline(appointment.id)}
-          className="text-destructive hover:text-destructive"
-        >
-          ✗ Decline
-        </Button>
-      </div>
+      {isPending && (
+        <div className="flex gap-2 ml-4">
+          <Button size="sm" onClick={() => onApprove(appointment.id)}>
+            ✓ Approve
+          </Button>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => onDecline(appointment.id)}
+            className="text-destructive hover:text-destructive"
+          >
+            ✗ Decline
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
