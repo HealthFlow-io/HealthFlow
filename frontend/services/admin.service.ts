@@ -207,7 +207,10 @@ export const adminService = {
 
   // ==================== Secretaries ====================
   async getSecretaries(): Promise<Array<{ id: string; userId: string; user: User; doctors: Doctor[] }>> {
-    return apiClient.get<Array<{ id: string; userId: string; user: User; doctors: Doctor[] }>>(API_ENDPOINTS.SECRETARY.BASE);
+    console.log('Fetching secretaries from:', API_ENDPOINTS.SECRETARY.BASE);
+    const result = await apiClient.get<Array<{ id: string; userId: string; user: User; doctors: Doctor[] }>>(API_ENDPOINTS.SECRETARY.BASE);
+    console.log('Raw secretaries response:', result);
+    return result;
   },
 
   // Create secretary requires existing user - pass userId

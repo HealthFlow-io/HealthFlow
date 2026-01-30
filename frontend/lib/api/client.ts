@@ -104,7 +104,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
     return {} as T;
   }
   
-  return JSON.parse(text);
+  try {
+    const parsed = JSON.parse(text);
+    console.log('API Response parsed:', { url: response.url, data: parsed });
+    return parsed;
+  } catch (error) {
+    console.error('Failed to parse JSON response:', text);
+    throw new Error('Invalid JSON response from server');
+  }
 }
 
 /**

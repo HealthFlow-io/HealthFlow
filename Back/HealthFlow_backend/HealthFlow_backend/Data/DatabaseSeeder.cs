@@ -76,8 +76,14 @@ public static class DatabaseSeeder
         await context.SaveChangesAsync();
         Console.WriteLine($"✓ Created {secretaryUsers.Count} secretary users");
 
+        // Generate Secretary Profiles
+        var secretaryProfiles = GenerateSecretaryProfiles(secretaryUsers);
+        await context.SecretaryProfiles.AddRangeAsync(secretaryProfiles);
+        await context.SaveChangesAsync();
+        Console.WriteLine($"✓ Created {secretaryProfiles.Count} secretary profiles");
+
         // Generate Secretary-Doctor Relationships
-        var secretaryDoctors = GenerateSecretaryDoctors(secretaryUsers, doctors);
+        var secretaryDoctors = GenerateSecretaryDoctors(secretaryProfiles, doctors);
         await context.SecretaryDoctors.AddRangeAsync(secretaryDoctors);
         await context.SaveChangesAsync();
         Console.WriteLine($"✓ Created {secretaryDoctors.Count} secretary-doctor relationships");
@@ -261,14 +267,44 @@ public static class DatabaseSeeder
         return availabilities;
     }
 
-    private static List<SecretaryDoctor> GenerateSecretaryDoctors(List<User> secretaryUsers, List<Doctor> doctors)
+    private static List<SecretaryProfile> GenerateSecretaryProfiles(List<User> secretaryUsers)
+    {
+        var secretaryProfiles = new List<SecretaryProfile>();
+
+        foreach (var user in secretaryUsers)
+        {
+            secretaryProfiles.Add(new SecretaryProfile
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow.AddDays(-new Random().Next(1, 365))
+            });
+        }
+
+        return secretaryProfiles;
+    }
+
+    private static List<SecretaryDoctor> GenerateSecretaryDoctors(List<SecretaryProfile> secretaryProfiles, List<Doctor> doctors)
     {
         var secretaryDoctors = new List<SecretaryDoctor>();
         var random = new Random();
 
-        // Note: SecretaryDoctor requires SecretaryProfileId, not userId
-        // For now, we'll skip this as we need SecretaryProfile entities first
-        // This would need to be implemented after creating SecretaryProfile entities
+        // Assign 2-5 doctors to each secretary
+        foreach (var secretary in secretaryProfiles)
+        {
+            var numberOfDoctors = random.Next(2, 6); // 2-5 doctors per secretary
+            var assignedDoctors = doctors.OrderBy(x => random.Next()).Take(numberOfDoctors).ToList();
+
+            foreach (var doctor in assignedDoctors)
+            {
+                secretaryDoctors.Add(new SecretaryDoctor
+                {
+                    Id = Guid.NewGuid(),
+                    SecretaryProfileId = secretary.Id,
+                    DoctorId = doctor.Id
+                });
+            }
+        }
 
         return secretaryDoctors;
     }

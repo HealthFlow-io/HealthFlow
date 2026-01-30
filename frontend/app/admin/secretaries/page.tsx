@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 import { adminService, CreateUserRequest, CreateSecretaryRequest } from '@/services';
 import { User, Doctor } from '@/types';
@@ -46,15 +47,28 @@ export default function AdminSecretariesPage() {
   const loadData = async () => {
     try {
       setIsLoading(true);
+      setError('');
+      console.log('Starting to load secretaries and doctors...');
+      
       const [secretariesData, doctorsData] = await Promise.all([
         adminService.getSecretaries(),
         adminService.getAllDoctors(),
       ]);
+      
+      console.log('Loaded secretaries:', secretariesData);
+      console.log('Secretaries type:', typeof secretariesData, Array.isArray(secretariesData));
+      console.log('Loaded doctors:', doctorsData);
+      
       setSecretaries(secretariesData);
       setDoctors(doctorsData);
+      
+      // toast.success(`Loaded ${secretariesData.length} secretaries`);
     } catch (err) {
       console.error('Failed to load data:', err);
-      setError('Failed to load secretaries');
+      const apiError = err as { message?: string; statusCode?: number };
+      const errorMessage = apiError.message || 'Failed to load secretaries';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
