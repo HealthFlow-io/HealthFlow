@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/store';
 import { ROUTES } from '@/lib/constants';
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui';
@@ -44,7 +45,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     if (!email || !password) {
-      setError('Please fill in all fields');
+      toast.error('Please fill in all fields');
       setIsSubmitting(false);
       return;
     }
@@ -57,19 +58,19 @@ export default function LoginPage() {
       console.log('[Login] Login successful:', updatedUser?.email);
       
       if (updatedUser) {
+        toast.success('Login successful! Redirecting...');
         const redirectPath = getRedirectPath(updatedUser.role, searchParams.get('redirect'));
         console.log('[Login] Redirecting to:', redirectPath);
         router.push(redirectPath);
       }
     } catch (err: unknown) {
-      console.error('Login error:', err);
       const apiError = err as { message?: string; statusCode?: number };
       if (apiError.statusCode === 401) {
-        setError('Invalid email or password');
+        toast.error('Invalid email or password');
       } else if (apiError.message) {
-        setError(apiError.message);
+        toast.error(apiError.message);
       } else {
-        setError('Login failed. Please check if the server is running.');
+        toast.error('Login failed. Please check if the server is running.');
       }
       setIsSubmitting(false);
     }
