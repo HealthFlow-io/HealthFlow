@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 import { adminService, CreateDoctorRequest, UpdateDoctorRequest, CreateUserRequest, specializationService, clinicService } from '@/services';
-import { Doctor, Specialization, Clinic, ConsultationType } from '@/types';
+import { Doctor, Specialization, Clinic, ConsultationType, UserRole } from '@/types';
 
 // Form for creating new doctor (first create user, then create doctor profile)
 interface NewDoctorForm {
@@ -125,7 +125,7 @@ export default function AdminDoctorsPage() {
         email: newForm.email,
         password: newForm.password,
         phone: newForm.phone || undefined,
-        role: 'Doctor',
+        role: UserRole.Doctor,
       };
       const newUser = await adminService.createUser(userRequest);
 
