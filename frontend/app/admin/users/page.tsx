@@ -20,7 +20,7 @@ export default function AdminUsersPage() {
     email: '',
     password: '',
     phone: '',
-    role: 'Patient',
+    role: UserRole.Patient,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -86,7 +86,7 @@ export default function AdminUsersPage() {
         email: user.email,
         password: '',
         phone: user.phone || '',
-        role: user.role as 'Patient' | 'Doctor' | 'Secretary' | 'Admin',
+        role: user.role,
       });
     } else {
       setEditingUser(null);
@@ -96,7 +96,7 @@ export default function AdminUsersPage() {
         email: '',
         password: '',
         phone: '',
-        role: 'Patient',
+        role: UserRole.Patient,
       });
     }
     setShowModal(true);
@@ -111,7 +111,7 @@ export default function AdminUsersPage() {
       email: '',
       password: '',
       phone: '',
-      role: 'Patient',
+      role: UserRole.Patient,
     });
   };
 
@@ -268,7 +268,7 @@ export default function AdminUsersPage() {
                   <select
                     className="w-full px-3 py-2 border rounded-md bg-background"
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'Patient' | 'Doctor' | 'Secretary' | 'Admin' })}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
                     required
                   >
                     {USER_ROLES.filter(r => r.value !== 'ClinicManager').map((role) => (
@@ -297,13 +297,13 @@ export default function AdminUsersPage() {
 
 function getRoleBadgeColor(role: UserRole | string): string {
   switch (role) {
-    case 'Admin':
+    case UserRole.Admin:
       return 'bg-red-100 text-red-800';
-    case 'Doctor':
+    case UserRole.Doctor:
       return 'bg-green-100 text-green-800';
-    case 'Secretary':
+    case UserRole.Secretary:
       return 'bg-blue-100 text-blue-800';
-    case 'Patient':
+    case UserRole.Patient:
       return 'bg-purple-100 text-purple-800';
     default:
       return 'bg-gray-100 text-gray-800';
