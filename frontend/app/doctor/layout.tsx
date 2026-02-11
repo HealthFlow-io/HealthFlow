@@ -7,6 +7,8 @@ import { ProtectedRoute } from '@/components/auth';
 import { UserRole } from '@/types';
 import { useAuthStore } from '@/store';
 import { useAuth } from '@/hooks';
+import NotificationBell from '@/components/ui/notification-bell';
+import { useChatUnreadCount } from '@/hooks/queries/use-chat';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -38,6 +40,7 @@ export default function DoctorDashboardLayout({ children }: DashboardLayoutProps
             <NavItem href={ROUTES.DOCTOR.APPOINTMENTS} icon="📅" label="Appointments" />
             <NavItem href={ROUTES.DOCTOR.SCHEDULE} icon="🗓️" label="My Schedule" />
             <NavItem href={ROUTES.DOCTOR.PATIENTS} icon="👥" label="Patients" />
+            <ChatNavItem />
             <NavItem href={ROUTES.DOCTOR.PROFILE} icon="👤" label="Profile" />
           </nav>
 
@@ -65,10 +68,7 @@ export default function DoctorDashboardLayout({ children }: DashboardLayoutProps
           <header className="h-16 border-b flex items-center justify-between px-6">
             <h1 className="text-xl font-semibold">Doctor Dashboard</h1>
             <div className="flex items-center space-x-4">
-              <button className="relative p-2 rounded-full hover:bg-muted">
-                <span className="text-xl">🔔</span>
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationBell />
               <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium">
                 {user?.firstName?.[0].toUpperCase()}{user?.lastName?.[0].toUpperCase()}
               </div>
@@ -93,6 +93,26 @@ function NavItem({ href, icon, label }: { href: string; icon: string; label: str
     >
       <span className="text-xl">{icon}</span>
       <span className="font-medium">{label}</span>
+    </Link>
+  );
+}
+
+function ChatNavItem() {
+  const { data: unreadData } = useChatUnreadCount();
+  const unread = unreadData?.count ?? 0;
+
+  return (
+    <Link
+      href={ROUTES.DOCTOR.MESSAGES}
+      className="flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+    >
+      <span className="text-xl">💬</span>
+      <span className="font-medium">Messages</span>
+      {unread > 0 && (
+        <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
     </Link>
   );
 }

@@ -23,4 +23,6 @@ public class User
     public ICollection<Appointment> PatientAppointments { get; set; } = new List<Appointment>();
     public ICollection<MedicalRecord> PatientMedicalRecords { get; set; } = new List<MedicalRecord>();
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    public ICollection<ChatMessage> SentMessages { get; set; } = new List<ChatMessage>();
+    public ICollection<ChatMessage> ReceivedMessages { get; set; } = new List<ChatMessage>();
 }

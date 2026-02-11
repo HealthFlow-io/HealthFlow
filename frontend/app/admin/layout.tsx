@@ -7,6 +7,7 @@ import { ProtectedRoute } from '@/components/auth';
 import { UserRole } from '@/types';
 import { useAuthStore } from '@/store';
 import { useAuth } from '@/hooks';
+import NotificationBell from '@/components/ui/notification-bell';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -67,9 +68,7 @@ export default function AdminDashboardLayout({ children }: DashboardLayoutProps)
           <header className="h-16 border-b flex items-center justify-between px-6">
             <h1 className="text-xl font-semibold">Admin Dashboard</h1>
             <div className="flex items-center space-x-4">
-              <button className="relative p-2 rounded-full hover:bg-muted">
-                <span className="text-xl">🔔</span>
-              </button>
+              <NotificationBell />
               <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium">
                 {user?.firstName?.[0].toUpperCase()}{user?.lastName?.[0].toUpperCase()}
               </div>

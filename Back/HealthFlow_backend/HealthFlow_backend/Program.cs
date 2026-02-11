@@ -168,6 +168,7 @@ builder.Services.AddScoped<IClinicService, ClinicService>();
 builder.Services.AddScoped<IMedicalRecordService, MedicalRecordService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
 var app = builder.Build();
 
@@ -198,6 +199,7 @@ app.MapControllers();
 // Map SignalR hubs
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<AppointmentHub>("/hubs/appointments");
+app.MapHub<ChatHub>("/hubs/chat");
 
 // Database migration and seeding (development only)
 if (app.Environment.IsDevelopment())

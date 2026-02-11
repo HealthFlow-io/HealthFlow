@@ -16,6 +16,7 @@ public class UnitOfWork : IUnitOfWork
     private ISecretaryRepository? _secretaries;
     private INotificationRepository? _notifications;
     private IFileRepository? _files;
+    private IChatMessageRepository? _chatMessages;
 
     public UnitOfWork(ApplicationDbContext context)
     {
@@ -34,6 +35,7 @@ public class UnitOfWork : IUnitOfWork
     public ISecretaryRepository Secretaries => _secretaries ??= new SecretaryRepository(_context);
     public INotificationRepository Notifications => _notifications ??= new NotificationRepository(_context);
     public IFileRepository Files => _files ??= new FileRepository(_context);
+    public IChatMessageRepository ChatMessages => _chatMessages ??= new ChatMessageRepository(_context);
 
     public async Task<int> SaveChangesAsync()
     {

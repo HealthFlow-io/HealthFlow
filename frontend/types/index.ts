@@ -474,3 +474,32 @@ export interface ApiError {
   errors?: Record<string, string[]>;
   statusCode: number;
 }
+
+// ============================================
+// CHAT / MESSAGING TYPES
+// ============================================
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  receiverId: string;
+  receiverName: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface SendMessageDto {
+  receiverId: string;
+  content: string;
+}
+
+export interface ChatConversation {
+  userId: string;
+  userName: string;
+  userRole: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+}
