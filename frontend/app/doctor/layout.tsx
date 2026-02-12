@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import Link from 'next/link';
 import { ROUTES } from '@/lib/constants';
 import { ProtectedRoute } from '@/components/auth';
+import { ChatBot } from '@/components/chat';
 import { UserRole } from '@/types';
 import { useAuthStore } from '@/store';
 import { useAuth } from '@/hooks';
@@ -81,6 +82,7 @@ export default function DoctorDashboardLayout({ children }: DashboardLayoutProps
           </main>
         </div>
       </div>
+      <ChatBot mode="admin" />
     </ProtectedRoute>
   );
 }

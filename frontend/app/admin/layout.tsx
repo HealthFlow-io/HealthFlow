@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import Link from 'next/link';
 import { ROUTES } from '@/lib/constants';
 import { ProtectedRoute } from '@/components/auth';
+import { ChatBot } from '@/components/chat';
 import { UserRole } from '@/types';
 import { useAuthStore } from '@/store';
 import { useAuth } from '@/hooks';
@@ -40,6 +41,7 @@ export default function AdminDashboardLayout({ children }: DashboardLayoutProps)
             <NavItem href={ROUTES.ADMIN.SECRETARIES} icon="📋" label="Secretaries" />
             <NavItem href={ROUTES.ADMIN.CLINICS} icon="🏥" label="Clinics" />
             <NavItem href={ROUTES.ADMIN.SPECIALIZATIONS} icon="🏷️" label="Specializations" />
+            <NavItem href={ROUTES.ADMIN.KNOWLEDGE_BASE} icon="🧠" label="Knowledge Base" />
             <NavItem href={ROUTES.ADMIN.SETTINGS} icon="⚙️" label="Settings" />
           </nav>
 
@@ -82,6 +84,7 @@ export default function AdminDashboardLayout({ children }: DashboardLayoutProps)
           </main>
         </div>
       </div>
+      <ChatBot mode="admin" />
     </ProtectedRoute>
   );
 }
