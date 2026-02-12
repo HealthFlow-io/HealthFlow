@@ -30,9 +30,31 @@ public static class DatabaseSeeder
         // Set seed for reproducible data
         Randomizer.Seed = new Random(12345);
 
-        // Get existing Specializations from migration (they're already seeded by the migration)
+        // Get or create Specializations
         var specializations = await context.Specializations.ToListAsync();
-        Console.WriteLine($"✓ Using {specializations.Count} specializations from migration");
+        if (specializations.Count == 0)
+        {
+            specializations = new List<Specialization>
+            {
+                new Specialization { Id = new Guid("11111111-1111-1111-1111-111111111111"), Name = "Cardiology", Category = "Medical", Description = "Heart and cardiovascular system" },
+                new Specialization { Id = new Guid("22222222-2222-2222-2222-222222222222"), Name = "Dermatology", Category = "Medical", Description = "Skin, hair, and nails" },
+                new Specialization { Id = new Guid("33333333-3333-3333-3333-333333333333"), Name = "Neurology", Category = "Medical", Description = "Brain and nervous system" },
+                new Specialization { Id = new Guid("44444444-4444-4444-4444-444444444444"), Name = "Orthopedics", Category = "Surgical", Description = "Bones and joints" },
+                new Specialization { Id = new Guid("55555555-5555-5555-5555-555555555555"), Name = "Pediatrics", Category = "Medical", Description = "Children's health" },
+                new Specialization { Id = new Guid("66666666-6666-6666-6666-666666666666"), Name = "Psychiatry", Category = "Mental Health", Description = "Mental health disorders" },
+                new Specialization { Id = new Guid("77777777-7777-7777-7777-777777777777"), Name = "General Surgery", Category = "Surgical", Description = "General surgical procedures" },
+                new Specialization { Id = new Guid("88888888-8888-8888-8888-888888888888"), Name = "Dentistry", Category = "Medical", Description = "Teeth and oral health" },
+                new Specialization { Id = new Guid("99999999-9999-9999-9999-999999999999"), Name = "Ophthalmology", Category = "Medical", Description = "Eye care and vision" },
+                new Specialization { Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), Name = "Gynecology", Category = "Medical", Description = "Women's health" }
+            };
+            await context.Specializations.AddRangeAsync(specializations);
+            await context.SaveChangesAsync();
+            Console.WriteLine($"✓ Created {specializations.Count} specializations");
+        }
+        else
+        {
+            Console.WriteLine($"✓ Using {specializations.Count} specializations from migration");
+        }
 
         // Generate Clinics (15)
         var clinics = GenerateClinics(15);
@@ -76,8 +98,14 @@ public static class DatabaseSeeder
         await context.SaveChangesAsync();
         Console.WriteLine($"✓ Created {secretaryUsers.Count} secretary users");
 
+        // Generate Secretary Profiles
+        var secretaryProfiles = GenerateSecretaryProfiles(secretaryUsers);
+        await context.SecretaryProfiles.AddRangeAsync(secretaryProfiles);
+        await context.SaveChangesAsync();
+        Console.WriteLine($"✓ Created {secretaryProfiles.Count} secretary profiles");
+
         // Generate Secretary-Doctor Relationships
-        var secretaryDoctors = GenerateSecretaryDoctors(secretaryUsers, doctors);
+        var secretaryDoctors = GenerateSecretaryDoctors(secretaryProfiles, doctors);
         await context.SecretaryDoctors.AddRangeAsync(secretaryDoctors);
         await context.SaveChangesAsync();
         Console.WriteLine($"✓ Created {secretaryDoctors.Count} secretary-doctor relationships");
@@ -164,10 +192,10 @@ public static class DatabaseSeeder
             .RuleFor(c => c.Address, f => f.Address.FullAddress())
             .RuleFor(c => c.Latitude, f => f.Address.Latitude())
             .RuleFor(c => c.Longitude, f => f.Address.Longitude())
-            .RuleFor(c => c.Phone, f => f.Phone.PhoneNumber())
+            .RuleFor(c => c.Phone, f => f.Phone.PhoneNumber("###-###-####"))
             .RuleFor(c => c.Email, f => f.Internet.Email())
             .RuleFor(c => c.Website, f => f.Internet.Url())
-            .RuleFor(c => c.CreatedAt, f => f.Date.Past(2));
+            .RuleFor(c => c.CreatedAt, f => DateTime.SpecifyKind(f.Date.Past(2), DateTimeKind.Utc));
 
         return clinicFaker.Generate(count);
     }
@@ -180,9 +208,9 @@ public static class DatabaseSeeder
             .RuleFor(u => u.LastName, f => f.Name.LastName())
             .RuleFor(u => u.Email, (f, u) => f.Internet.Email(u.FirstName, u.LastName).ToLower())
             .RuleFor(u => u.PasswordHash, f => DefaultPasswordHash)
-            .RuleFor(u => u.Phone, f => f.Phone.PhoneNumber())
+            .RuleFor(u => u.Phone, f => f.Phone.PhoneNumber("###-###-####"))
             .RuleFor(u => u.Role, f => role)
-            .RuleFor(u => u.CreatedAt, f => f.Date.Past(1));
+            .RuleFor(u => u.CreatedAt, f => DateTime.SpecifyKind(f.Date.Past(1), DateTimeKind.Utc));
 
         return userFaker.Generate(count);
     }
@@ -261,14 +289,44 @@ public static class DatabaseSeeder
         return availabilities;
     }
 
-    private static List<SecretaryDoctor> GenerateSecretaryDoctors(List<User> secretaryUsers, List<Doctor> doctors)
+    private static List<SecretaryProfile> GenerateSecretaryProfiles(List<User> secretaryUsers)
+    {
+        var secretaryProfiles = new List<SecretaryProfile>();
+
+        foreach (var user in secretaryUsers)
+        {
+            secretaryProfiles.Add(new SecretaryProfile
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow.AddDays(-new Random().Next(1, 365))
+            });
+        }
+
+        return secretaryProfiles;
+    }
+
+    private static List<SecretaryDoctor> GenerateSecretaryDoctors(List<SecretaryProfile> secretaryProfiles, List<Doctor> doctors)
     {
         var secretaryDoctors = new List<SecretaryDoctor>();
         var random = new Random();
 
-        // Note: SecretaryDoctor requires SecretaryProfileId, not userId
-        // For now, we'll skip this as we need SecretaryProfile entities first
-        // This would need to be implemented after creating SecretaryProfile entities
+        // Assign 2-5 doctors to each secretary
+        foreach (var secretary in secretaryProfiles)
+        {
+            var numberOfDoctors = random.Next(2, 6); // 2-5 doctors per secretary
+            var assignedDoctors = doctors.OrderBy(x => random.Next()).Take(numberOfDoctors).ToList();
+
+            foreach (var doctor in assignedDoctors)
+            {
+                secretaryDoctors.Add(new SecretaryDoctor
+                {
+                    Id = Guid.NewGuid(),
+                    SecretaryProfileId = secretary.Id,
+                    DoctorId = doctor.Id
+                });
+            }
+        }
 
         return secretaryDoctors;
     }
@@ -295,7 +353,7 @@ public static class DatabaseSeeder
             })
             .RuleFor(a => a.Reason, f => f.Lorem.Sentence())
             .RuleFor(a => a.MeetingLink, (f, a) => a.Type == AppointmentType.Online ? f.Internet.Url() : null)
-            .RuleFor(a => a.CreatedAt, f => f.Date.Past(1));
+            .RuleFor(a => a.CreatedAt, f => DateTime.SpecifyKind(f.Date.Past(1), DateTimeKind.Utc));
 
         return appointmentFaker.Generate(count);
     }
@@ -326,9 +384,9 @@ public static class DatabaseSeeder
                 .RuleFor(m => m.Temperature, f => f.Random.Bool(0.7f) ? f.Random.Decimal(36.0m, 37.5m) : null)
                 .RuleFor(m => m.Weight, f => f.Random.Bool(0.6f) ? f.Random.Decimal(50, 120) : null)
                 .RuleFor(m => m.Height, f => f.Random.Bool(0.6f) ? f.Random.Decimal(150, 200) : null)
-                .RuleFor(m => m.FollowUpDate, f => f.Random.Bool(0.3f) ? f.Date.Future(2) : null)
+                .RuleFor(m => m.FollowUpDate, f => f.Random.Bool(0.3f) ? DateTime.SpecifyKind(f.Date.Future(2), DateTimeKind.Utc) : null)
                 .RuleFor(m => m.FollowUpNotes, f => f.Random.Bool(0.3f) ? f.Lorem.Sentence() : null)
-                .RuleFor(m => m.CreatedAt, f => f.Date.Past(1))
+                .RuleFor(m => m.CreatedAt, f => DateTime.SpecifyKind(f.Date.Past(1), DateTimeKind.Utc))
                 .Generate();
 
             medicalRecords.Add(record);
@@ -348,7 +406,7 @@ public static class DatabaseSeeder
             .RuleFor(f => f.Size, f => f.Random.Long(100000, 5000000))
             .RuleFor(f => f.Path, f => "/uploads/files")
             .RuleFor(f => f.UploadedBy, f => f.PickRandom(uploaders).Id)
-            .RuleFor(f => f.CreatedAt, f => f.Date.Past(1));
+            .RuleFor(f => f.CreatedAt, f => DateTime.SpecifyKind(f.Date.Past(1), DateTimeKind.Utc));
 
         return fileFaker.Generate(count);
     }
@@ -376,7 +434,7 @@ public static class DatabaseSeeder
                     FileUploadId = file.Id,
                     Description = new Faker().Lorem.Sentence(3),
                     AttachmentType = attachmentTypes[random.Next(attachmentTypes.Length)],
-                    CreatedAt = record.CreatedAt.AddMinutes(random.Next(5, 60))
+                    CreatedAt = DateTime.SpecifyKind(record.CreatedAt.AddMinutes(random.Next(5, 60)), DateTimeKind.Utc)
                 });
             }
         }
@@ -386,15 +444,32 @@ public static class DatabaseSeeder
 
     private static List<DoctorRating> GenerateDoctorRatings(List<User> patients, List<Doctor> doctors, int count)
     {
-        var ratingFaker = new Faker<DoctorRating>()
-            .RuleFor(r => r.Id, f => Guid.NewGuid())
-            .RuleFor(r => r.DoctorId, f => f.PickRandom(doctors).Id)
-            .RuleFor(r => r.PatientId, f => f.PickRandom(patients).Id)
-            .RuleFor(r => r.Rating, f => f.Random.Int(3, 5))
-            .RuleFor(r => r.Comment, f => f.Random.Bool(0.7f) ? f.Lorem.Paragraph() : null)
-            .RuleFor(r => r.CreatedAt, f => f.Date.Past(1));
+        var ratings = new List<DoctorRating>();
+        var usedCombinations = new HashSet<(Guid DoctorId, Guid PatientId)>();
+        var random = new Random();
+        var faker = new Faker();
 
-        return ratingFaker.Generate(count);
+        while (ratings.Count < count && usedCombinations.Count < doctors.Count * patients.Count)
+        {
+            var doctor = doctors[random.Next(doctors.Count)];
+            var patient = patients[random.Next(patients.Count)];
+            var combination = (doctor.Id, patient.Id);
+
+            if (usedCombinations.Add(combination))
+            {
+                ratings.Add(new DoctorRating
+                {
+                    Id = Guid.NewGuid(),
+                    DoctorId = doctor.Id,
+                    PatientId = patient.Id,
+                    Rating = faker.Random.Int(3, 5),
+                    Comment = faker.Random.Bool(0.7f) ? faker.Lorem.Paragraph() : null,
+                    CreatedAt = DateTime.SpecifyKind(faker.Date.Past(1), DateTimeKind.Utc)
+                });
+            }
+        }
+
+        return ratings;
     }
 
     private static async Task UpdateDoctorRatings(ApplicationDbContext context, List<Doctor> doctors)
@@ -434,7 +509,7 @@ public static class DatabaseSeeder
             .RuleFor(n => n.Message, f => f.Lorem.Paragraph())
             .RuleFor(n => n.Type, f => f.PickRandom(notificationTypes))
             .RuleFor(n => n.IsRead, f => f.Random.Bool(0.6f))
-            .RuleFor(n => n.CreatedAt, f => f.Date.Past(1));
+            .RuleFor(n => n.CreatedAt, f => DateTime.SpecifyKind(f.Date.Past(1), DateTimeKind.Utc));
 
         return notificationFaker.Generate(count);
     }

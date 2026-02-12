@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/store';
 import { ROUTES } from '@/lib/constants';
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui';
@@ -52,19 +53,19 @@ export default function RegisterPage() {
     const { firstName, lastName, email, phone, password, confirmPassword } = formData;
 
     if (!firstName || !lastName || !email || !password) {
-      setError('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       setIsSubmitting(false);
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      toast.error('Passwords do not match');
       setIsSubmitting(false);
       return;
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      toast.error('Password must be at least 8 characters');
       setIsSubmitting(false);
       return;
     }
@@ -77,19 +78,19 @@ export default function RegisterPage() {
       console.log('[Register] Registration successful:', updatedUser?.email);
       
       if (updatedUser) {
+        toast.success('Registration successful! Redirecting...');
         hasRedirected.current = true;
         window.location.href = ROUTES.PATIENT.DASHBOARD;
       }
     } catch (err: unknown) {
-      console.error('Registration error:', err);
       const apiError = err as { message?: string; errors?: Record<string, string[]> };
       if (apiError.errors) {
         const errorMessages = Object.values(apiError.errors).flat().join(', ');
-        setError(errorMessages || 'Registration failed.');
+        toast.error(errorMessages || 'Registration failed.');
       } else if (apiError.message) {
-        setError(apiError.message);
+        toast.error(apiError.message);
       } else {
-        setError('Registration failed. Please check if the server is running.');
+        toast.error('Registration failed. Please check if the server is running.');
       }
       setIsSubmitting(false);
     }

@@ -45,9 +45,17 @@ public class SecretaryRepository : Repository<SecretaryProfile>, ISecretaryRepos
 
     public async Task<IEnumerable<SecretaryProfile>> GetAllWithUserAsync()
     {
-        return await _dbSet
+        var result = await _dbSet
             .Include(s => s.User)
             .ToListAsync();
+        
+        Console.WriteLine($"SecretaryRepository.GetAllWithUserAsync: Found {result.Count} secretaries");
+        foreach (var s in result)
+        {
+            Console.WriteLine($"  Secretary: Id={s.Id}, UserId={s.UserId}, User is null={s.User == null}");
+        }
+        
+        return result;
     }
 
     public async Task<SecretaryProfile?> GetByIdWithUserAsync(Guid id)

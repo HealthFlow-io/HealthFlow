@@ -1,6 +1,6 @@
 'use client';
 
-import { QueryProvider, AuthProvider, ThemeProvider } from '@/providers';
+import { QueryProvider, AuthProvider, ThemeProvider, ToastProvider } from '@/providers';
 import { type ReactNode } from 'react';
 
 interface ProvidersProps {
@@ -11,7 +11,10 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <QueryProvider>
       <ThemeProvider>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ToastProvider />
+          {children}
+        </AuthProvider>
       </ThemeProvider>
     </QueryProvider>
   );

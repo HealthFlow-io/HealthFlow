@@ -72,10 +72,10 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configure MySQL Database
+// Configure PostgreSQL Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+    options.UseNpgsql(connectionString));
 
 // Configure JWT Authentication
 var jwtSecretKey = builder.Configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
@@ -172,13 +172,14 @@ builder.Services.AddScoped<IFileService, FileService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "HealthFlow API v1");
+        c.RoutePrefix = "swagger";
     });
+if (app.Environment.IsDevelopment())
+{
 }
 
 // Add exception middleware

@@ -25,33 +25,54 @@ public class SecretariesController : ControllerBase
     [Authorize(Roles = "Admin")]  // Admin only
     public async Task<ActionResult<IEnumerable<SecretaryProfileDto>>> GetAll()
     {
-        var secretaries = await _unitOfWork.Secretaries.GetAllWithUserAsync();
-        
-        var dtos = new List<SecretaryProfileDto>();
-        foreach (var s in secretaries)
+        try
         {
-            var assignedDoctors = await _unitOfWork.Secretaries.GetAssignedDoctorsAsync(s.Id);
-            var doctorDtos = assignedDoctors.Select(d => new DoctorDto(
-                d.Id,
-                d.FullName,
-                d.Specialization?.Name ?? ""
-            )).ToList();
+            var secretaries = await _unitOfWork.Secretaries.GetAllWithUserAsync();
+            Console.WriteLine($"Found {secretaries.Count()} secretaries");
             
-            dtos.Add(new SecretaryProfileDto(
-                s.Id,
-                s.UserId,
-                new UserDto(
-                    s.User.Id,
-                    s.User.FirstName,
-                    s.User.LastName,
-                    s.User.Email,
-                    s.User.Phone
-                ),
-                doctorDtos
-            ));
+            var dtos = new List<SecretaryProfileDto>();
+            foreach (var s in secretaries)
+            {
+                Console.WriteLine($"Processing secretary: Id={s.Id}, UserId={s.UserId}, User is null={s.User == null}");
+                
+                if (s.User == null)
+                {
+                    Console.WriteLine($"WARNING: Secretary {s.Id} has null User!");
+                    continue;
+                }
+                
+                var assignedDoctors = await _unitOfWork.Secretaries.GetAssignedDoctorsAsync(s.Id);
+                Console.WriteLine($"Secretary {s.Id} has {assignedDoctors.Count()} assigned doctors");
+                
+                var doctorDtos = assignedDoctors.Select(d => new DoctorDto(
+                    d.Id,
+                    d.FullName,
+                    d.Specialization?.Name ?? ""
+                )).ToList();
+                
+                dtos.Add(new SecretaryProfileDto(
+                    s.Id,
+                    s.UserId,
+                    new UserDto(
+                        s.User.Id,
+                        s.User.FirstName,
+                        s.User.LastName,
+                        s.User.Email,
+                        s.User.Phone
+                    ),
+                    doctorDtos
+                ));
+            }
+            
+            Console.WriteLine($"Returning {dtos.Count} secretary DTOs");
+            return Ok(dtos);
         }
-        
-        return Ok(dtos);
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR in GetAll secretaries: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return StatusCode(500, new { message = "Error fetching secretaries", error = ex.Message });
+        }
     }
 
     // Get current secretary profile (for logged-in secretary)
