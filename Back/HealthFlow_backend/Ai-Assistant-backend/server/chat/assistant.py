@@ -58,6 +58,9 @@ def get_admin_rag_chain():
     return _ADMIN_RAG_CHAIN
 
 
+#checking commit changes 
+
+
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",  # Faster, more current model
