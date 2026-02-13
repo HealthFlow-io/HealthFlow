@@ -9,6 +9,7 @@ export { medicalRecordService } from './medical-record.service';
 export { fileService } from './file.service';
 export { secretaryService } from './secretary.service';
 export { chatService } from './chat.service';
+export { chatbotService } from './chatbot.service';
 export type { SecretaryPatient, SecretaryProfile, AppointmentHistory } from './secretary.service';
 export type { 
   CreateUserRequest,

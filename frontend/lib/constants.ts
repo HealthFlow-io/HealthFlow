@@ -116,6 +116,7 @@ export const ROUTES = {
     SECRETARIES: '/admin/secretaries',
     CLINICS: '/admin/clinics',
     SPECIALIZATIONS: '/admin/specializations',
+    KNOWLEDGE_BASE: '/admin/knowledge-base',
     SETTINGS: '/admin/settings',
   },
 } as const;

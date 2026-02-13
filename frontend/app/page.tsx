@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui';
+import { PublicChatBot } from '@/components/chat';
 
 export default function HomePage() {
   return (
@@ -239,6 +240,9 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* Public Chatbot - available to everyone */}
+      <PublicChatBot />
     </div>
   );
 }
