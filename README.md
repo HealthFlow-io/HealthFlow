@@ -85,14 +85,14 @@ HealthFlow is a full-stack healthcare management platform that connects **patien
 │   (Port 3000)   │  HTTP    │   (Port 5155)        │
 │                 │          │                      │
 │  React Query    │ SignalR  │  EF Core 8           │
-│  Zustand        │◄═══════►│  Repository/UoW      │
-│  SignalR Client │ WebSocket│  JWT Auth             │
+│  Zustand        │◄════════►│  Repository/UoW      │
+│  SignalR Client │ WebSocket│  JWT Auth            │
 └─────────────────┘          └──────────┬───────────┘
                                         │
                                         ▼
                               ┌──────────────────┐
-                              │   PostgreSQL      │
-                              │   (Neon Cloud)    │
+                              │   PostgreSQL     │
+                              │   (Neon Cloud)   │
                               └──────────────────┘
 ```
 
