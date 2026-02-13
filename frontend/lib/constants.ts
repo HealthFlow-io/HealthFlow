@@ -95,6 +95,7 @@ export const ROUTES = {
     APPOINTMENTS: '/doctor/appointments',
     SCHEDULE: '/doctor/schedule',
     PATIENTS: '/doctor/patients',
+    MESSAGES: '/doctor/messages',
     PROFILE: '/doctor/profile',
   },
   
@@ -104,6 +105,7 @@ export const ROUTES = {
     APPOINTMENTS: '/secretary/appointments',
     DOCTORS: '/secretary/doctors',
     PATIENTS: '/secretary/patients',
+    MESSAGES: '/secretary/messages',
   },
   
   // Admin Routes

@@ -25,6 +25,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<SecretaryDoctor> SecretaryDoctors { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<FileUpload> FileUploads { get; set; }
+    public DbSet<ChatMessage> ChatMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -250,6 +251,26 @@ public class ApplicationDbContext : DbContext
                 .WithMany(u => u.Notifications)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ChatMessage configuration
+        modelBuilder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Content).IsRequired().HasMaxLength(2000);
+
+            entity.HasOne(e => e.Sender)
+                .WithMany(u => u.SentMessages)
+                .HasForeignKey(e => e.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Receiver)
+                .WithMany(u => u.ReceivedMessages)
+                .HasForeignKey(e => e.ReceiverId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.SenderId, e.ReceiverId });
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         // FileUpload configuration

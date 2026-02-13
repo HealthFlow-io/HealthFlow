@@ -9,6 +9,8 @@ import { ChatBot } from '@/components/chat';
 import { UserRole } from '@/types';
 import { useAuthStore } from '@/store';
 import { useAuth } from '@/hooks';
+import NotificationBell from '@/components/ui/notification-bell';
+import { useChatUnreadCount } from '@/hooks/queries/use-chat';
 
 interface SecretaryLayoutProps {
   children: ReactNode;
@@ -61,6 +63,7 @@ export default function SecretaryLayout({ children }: SecretaryLayoutProps) {
               label="Patients"
               active={pathname?.startsWith(ROUTES.SECRETARY.PATIENTS)}
             />
+            <ChatNavItem pathname={pathname} />
           </nav>
 
           <div className="p-4 border-t">
@@ -93,10 +96,7 @@ export default function SecretaryLayout({ children }: SecretaryLayoutProps) {
               <h1 className="text-xl font-semibold">Secretary Portal</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="relative p-2 rounded-full hover:bg-muted transition-colors">
-                <span className="text-xl">🔔</span>
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationBell />
               <div className="hidden sm:flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/50">
                 <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium text-sm">
                   {user?.firstName?.[0].toUpperCase()}{user?.lastName?.[0].toUpperCase()}
@@ -139,6 +139,35 @@ function NavItem({ href, icon, label, active }: NavItemProps) {
     >
       <span className="text-xl">{icon}</span>
       <span>{label}</span>
+    </Link>
+  );
+}
+
+function ChatNavItem({ pathname }: { pathname: string | null }) {
+  const { data: unreadData } = useChatUnreadCount();
+  const unread = unreadData?.count ?? 0;
+  const active = pathname === ROUTES.SECRETARY.MESSAGES;
+
+  return (
+    <Link
+      href={ROUTES.SECRETARY.MESSAGES}
+      className={`flex items-center space-x-3 px-4 py-3 rounded-lg font-medium transition-colors ${
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+      }`}
+    >
+      <span className="text-xl">💬</span>
+      <span>Messages</span>
+      {unread > 0 && (
+        <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+          active
+            ? 'bg-primary-foreground text-primary'
+            : 'bg-primary text-primary-foreground'
+        }`}>
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
     </Link>
   );
 }

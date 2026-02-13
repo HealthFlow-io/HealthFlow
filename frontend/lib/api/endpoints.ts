@@ -118,6 +118,16 @@ export const API_ENDPOINTS = {
     DOWNLOAD: (fileId: string) => `${API_BASE_URL}/files/${fileId}`,
     DELETE: (fileId: string) => `${API_BASE_URL}/files/${fileId}`,
   },
+
+  // Chat / Messaging
+  CHAT: {
+    CONTACTS: `${API_BASE_URL}/chat/contacts`,
+    CONVERSATIONS: `${API_BASE_URL}/chat/conversations`,
+    CONVERSATION: (userId: string) => `${API_BASE_URL}/chat/conversations/${userId}`,
+    SEND: `${API_BASE_URL}/chat/send`,
+    MARK_READ: (senderId: string) => `${API_BASE_URL}/chat/conversations/${senderId}/read`,
+    UNREAD_COUNT: `${API_BASE_URL}/chat/unread-count`,
+  },
 } as const;
 
 // ============================================
@@ -155,11 +165,13 @@ export const SIGNALR_EVENTS = {
     CANCELLED: 'AppointmentCancelled',
   },
 
-  // Chat Events (Planned)
+  // Chat Events
   CHAT: {
     RECEIVE_MESSAGE: 'ReceiveMessage',
+    MESSAGE_SENT: 'MessageSent',
     USER_TYPING: 'UserTyping',
-    MESSAGE_READ: 'MessageRead',
+    MESSAGES_READ: 'MessagesRead',
+    MESSAGE_ERROR: 'MessageError',
   },
 } as const;
 

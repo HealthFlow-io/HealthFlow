@@ -5,7 +5,7 @@
 
 import { WS_HUBS, SIGNALR_EVENTS } from '@/lib/api/endpoints';
 import { getAccessToken } from '@/lib/api/client';
-import { Notification, Appointment } from '@/types';
+import { Notification, Appointment, ChatMessage } from '@/types';
 
 // SignalR types (you'll need to install @microsoft/signalr)
 // npm install @microsoft/signalr
@@ -30,6 +30,7 @@ type HubConnectionBuilder = {
 // Connection instances
 let notificationsConnection: HubConnection | null = null;
 let appointmentsConnection: HubConnection | null = null;
+let chatConnection: HubConnection | null = null;
 
 /**
  * Event handlers type definitions
@@ -45,6 +46,13 @@ export interface AppointmentEventHandlers {
   onNewRequest?: (appointment: Appointment) => void;
   onReminder?: (appointment: Appointment) => void;
   onCancelled?: (appointmentId: string) => void;
+}
+
+export interface ChatEventHandlers {
+  onReceiveMessage?: (message: ChatMessage) => void;
+  onUserTyping?: (data: { userId: string }) => void;
+  onMessagesRead?: (data: { readBy: string }) => void;
+  onMessageError?: (data: { error: string }) => void;
 }
 
 /**
@@ -226,6 +234,7 @@ export async function disconnectAll(): Promise<void> {
   await Promise.all([
     disconnectFromNotifications(),
     disconnectFromAppointments(),
+    disconnectFromChat(),
   ]);
 }
 
@@ -243,12 +252,161 @@ export function isAppointmentsConnected(): boolean {
   return appointmentsConnection?.state === 'Connected';
 }
 
+/**
+ * Connect to Chat Hub
+ */
+export async function connectToChat(
+  handlers: ChatEventHandlers
+): Promise<void> {
+  try {
+    // If already connected, disconnect first
+    if (chatConnection && chatConnection.state === 'Connected') {
+      await disconnectFromChat();
+    }
+
+    chatConnection = await createConnection(WS_HUBS.CHAT);
+
+    if (!chatConnection) {
+      console.warn('Failed to create chat connection');
+      return;
+    }
+
+    // Register event handlers
+    if (handlers.onReceiveMessage) {
+      chatConnection.on(
+        SIGNALR_EVENTS.CHAT.RECEIVE_MESSAGE,
+        handlers.onReceiveMessage
+      );
+    }
+
+    if (handlers.onUserTyping) {
+      chatConnection.on(
+        SIGNALR_EVENTS.CHAT.USER_TYPING,
+        handlers.onUserTyping
+      );
+    }
+
+    if (handlers.onMessagesRead) {
+      chatConnection.on(
+        SIGNALR_EVENTS.CHAT.MESSAGES_READ,
+        handlers.onMessagesRead
+      );
+    }
+
+    if (handlers.onMessageError) {
+      chatConnection.on(
+        SIGNALR_EVENTS.CHAT.MESSAGE_ERROR,
+        handlers.onMessageError
+      );
+    }
+
+    await chatConnection.start();
+    console.log('Connected to Chat Hub');
+  } catch (error) {
+    console.error('Failed to connect to Chat Hub:', error);
+  }
+}
+
+/**
+ * Join a conversation room (call when user selects a conversation)
+ */
+export async function joinChatRoom(otherUserId: string): Promise<void> {
+  if (chatConnection && chatConnection.state === 'Connected') {
+    try {
+      await chatConnection.invoke('JoinConversation', otherUserId);
+      console.log(`Joined chat room with ${otherUserId}`);
+    } catch (error) {
+      console.error('Failed to join chat room:', error);
+    }
+  }
+}
+
+/**
+ * Leave a conversation room (call when user leaves a conversation)
+ */
+export async function leaveChatRoom(otherUserId: string): Promise<void> {
+  if (chatConnection && chatConnection.state === 'Connected') {
+    try {
+      await chatConnection.invoke('LeaveConversation', otherUserId);
+      console.log(`Left chat room with ${otherUserId}`);
+    } catch (error) {
+      console.error('Failed to leave chat room:', error);
+    }
+  }
+}
+
+/**
+ * Send a message via SignalR (real-time)
+ */
+export async function sendChatMessage(
+  receiverId: string,
+  content: string
+): Promise<void> {
+  if (chatConnection && chatConnection.state === 'Connected') {
+    await chatConnection.invoke('SendMessage', { receiverId, content });
+  } else {
+    console.warn('Chat connection not available, cannot send message');
+  }
+}
+
+/**
+ * Mark messages as read via SignalR
+ */
+export async function markChatMessagesRead(
+  senderId: string
+): Promise<void> {
+  if (chatConnection && chatConnection.state === 'Connected') {
+    await chatConnection.invoke('MarkAsRead', senderId);
+  }
+}
+
+/**
+ * Send typing indicator via SignalR
+ */
+export async function sendTypingIndicator(
+  receiverId: string
+): Promise<void> {
+  if (chatConnection && chatConnection.state === 'Connected') {
+    await chatConnection.invoke('SendTyping', receiverId);
+  }
+}
+
+/**
+ * Disconnect from Chat Hub
+ */
+export async function disconnectFromChat(): Promise<void> {
+  if (chatConnection) {
+    try {
+      await chatConnection.stop();
+      chatConnection = null;
+      console.log('Disconnected from Chat Hub');
+    } catch (error) {
+      console.error('Error disconnecting from Chat Hub:', error);
+    }
+  }
+}
+
+/**
+ * Check if connected to Chat Hub
+ */
+export function isChatConnected(): boolean {
+  return chatConnection?.state === 'Connected';
+}
+
 export default {
   connectToNotifications,
   connectToAppointments,
+  connectToChat,
   disconnectFromNotifications,
   disconnectFromAppointments,
+  disconnectFromChat,
   disconnectAll,
   isNotificationsConnected,
   isAppointmentsConnected,
+  isChatConnected,
+  joinChatRoom,
+  leaveChatRoom,
+  sendChatMessage,
+  markChatMessagesRead,
+  sendTypingIndicator,
 };

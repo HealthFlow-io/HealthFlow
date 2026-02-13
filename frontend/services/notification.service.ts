@@ -5,7 +5,7 @@
 
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS, buildUrl } from '@/lib/api/endpoints';
-import { Notification, PaginatedResponse } from '@/types';
+import { Notification } from '@/types';
 
 interface NotificationParams {
   isRead?: boolean;
@@ -15,11 +15,11 @@ interface NotificationParams {
 
 export const notificationService = {
   /**
-   * Get all notifications
+   * Get all notifications (API returns a plain array)
    */
-  async getAll(params?: NotificationParams): Promise<PaginatedResponse<Notification>> {
+  async getAll(params?: NotificationParams): Promise<Notification[]> {
     const url = buildUrl(API_ENDPOINTS.NOTIFICATIONS.BASE, params as Record<string, string | number | boolean>);
-    return apiClient.get<PaginatedResponse<Notification>>(url);
+    return apiClient.get<Notification[]>(url);
   },
 
   /**

@@ -15,5 +15,6 @@ public interface IUnitOfWork : IDisposable
     ISecretaryRepository Secretaries { get; }
     INotificationRepository Notifications { get; }
     IFileRepository Files { get; }
+    IChatMessageRepository ChatMessages { get; }
     Task<int> SaveChangesAsync();
 }
